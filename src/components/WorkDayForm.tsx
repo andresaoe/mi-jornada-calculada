@@ -17,7 +17,7 @@ interface WorkDayFormProps {
 
 export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: WorkDayFormProps) {
   const [date, setDate] = useState(editingWorkDay?.date || new Date().toISOString().split('T')[0]);
-  const [shiftType, setShiftType] = useState<ShiftType>(editingWorkDay?.shiftType || 'diurno');
+  const [shiftType, setShiftType] = useState<ShiftType>(editingWorkDay?.shiftType || 'diurno_am');
   const [regularHours, setRegularHours] = useState(editingWorkDay?.regularHours.toString() || '8');
   const [extraHours, setExtraHours] = useState(editingWorkDay?.extraHours.toString() || '0');
   const [isHoliday, setIsHoliday] = useState(editingWorkDay?.isHoliday || false);
@@ -37,7 +37,7 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
     if (!editingWorkDay) {
       // Reset form only if not editing
       setDate(new Date().toISOString().split('T')[0]);
-      setShiftType('diurno');
+      setShiftType('diurno_am');
       setRegularHours('8');
       setExtraHours('0');
       setIsHoliday(false);
@@ -83,8 +83,9 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="diurno">Diurno</SelectItem>
-                  <SelectItem value="nocturno">Nocturno (9pm-5am)</SelectItem>
+                  <SelectItem value="diurno_am">Diurno AM (5am-1pm)</SelectItem>
+                  <SelectItem value="tarde_pm">Tarde PM (1pm-9pm)</SelectItem>
+                  <SelectItem value="trasnocho">Trasnocho (9pm-5am)</SelectItem>
                   <SelectItem value="mixto">Mixto</SelectItem>
                 </SelectContent>
               </Select>

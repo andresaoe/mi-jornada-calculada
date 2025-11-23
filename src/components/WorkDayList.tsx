@@ -26,11 +26,22 @@ export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListP
 
   const getShiftBadge = (shiftType: string) => {
     const variants = {
-      diurno: 'default',
-      nocturno: 'secondary',
+      diurno_am: 'default',
+      tarde_pm: 'secondary',
+      trasnocho: 'outline',
       mixto: 'outline',
     };
     return variants[shiftType as keyof typeof variants] || 'default';
+  };
+
+  const getShiftLabel = (shiftType: string) => {
+    const labels = {
+      diurno_am: 'Diurno AM',
+      tarde_pm: 'Tarde PM',
+      trasnocho: 'Trasnocho',
+      mixto: 'Mixto',
+    };
+    return labels[shiftType as keyof typeof labels] || shiftType;
   };
 
   return (
@@ -77,7 +88,7 @@ export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListP
                       </TableCell>
                       <TableCell>
                         <Badge variant={getShiftBadge(workDay.shiftType) as any}>
-                          {workDay.shiftType.charAt(0).toUpperCase() + workDay.shiftType.slice(1)}
+                          {getShiftLabel(workDay.shiftType)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
