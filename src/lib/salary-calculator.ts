@@ -6,13 +6,13 @@ const MONTHLY_HOURS = 240; // Standard monthly working hours in Colombia
 const HOURLY_RATE = BASE_SALARY / MONTHLY_HOURS;
 
 // Colombian labor law surcharges
-const NIGHT_SURCHARGE = 0.35; // 35% for night work (9pm-5am)
+const NIGHT_SURCHARGE = 0.35; // 35% for night work (Trasnocho 9pm-5am)
 const HOLIDAY_SURCHARGE = 0.75; // 75% for holidays
 const EXTRA_HOURS_DAY = 0.25; // 25% for daytime extra hours
 const EXTRA_HOURS_NIGHT = 0.75; // 75% for nighttime extra hours
 const EXTRA_HOURS_HOLIDAY_DAY = 1.0; // 100% for daytime extra hours on holidays
 const EXTRA_HOURS_HOLIDAY_NIGHT = 1.5; // 150% for nighttime extra hours on holidays
-const NIGHT_HOLIDAY_SURCHARGE = 1.1; // 110% for night work on holidays
+const NIGHT_HOLIDAY_SURCHARGE = 1.1; // 110% for night work on holidays (Trasnocho)
 
 export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
@@ -29,7 +29,7 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   const isNextDaySunday = nextDay.getDay() === 0;
 
   // Calculate night surcharge
-  if (shiftType === 'nocturno') {
+  if (shiftType === 'trasnocho') {
     // Night shift is 9pm-5am (8 hours total)
     // 9pm-00:00 = 3 hours (same day)
     // 00:00-5am = 5 hours (next day)
@@ -59,20 +59,20 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   }
 
   // Calculate holiday surcharge (only for non-night or in addition to night)
-  if (isHoliday && shiftType !== 'nocturno') {
+  if (isHoliday && shiftType !== 'trasnocho') {
     holidaySurcharge = regularHours * HOURLY_RATE * HOLIDAY_SURCHARGE;
   }
 
   // Calculate extra hours pay
   if (extraHours > 0) {
     if (isHoliday) {
-      if (shiftType === 'nocturno') {
+      if (shiftType === 'trasnocho') {
         extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_HOLIDAY_NIGHT);
       } else {
         extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_HOLIDAY_DAY);
       }
     } else {
-      if (shiftType === 'nocturno') {
+      if (shiftType === 'trasnocho') {
         extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_NIGHT);
       } else {
         extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_DAY);

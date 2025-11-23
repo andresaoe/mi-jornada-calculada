@@ -1,4 +1,4 @@
-export type ShiftType = 'diurno' | 'nocturno' | 'mixto';
+export type ShiftType = 'diurno_am' | 'tarde_pm' | 'trasnocho' | 'mixto';
 
 export interface WorkDay {
   id: string;
