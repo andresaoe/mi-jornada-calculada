@@ -75,11 +75,15 @@ export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListP
                   return (
                     <TableRow key={workDay.id}>
                       <TableCell className="font-medium">
-                        {new Date(workDay.date).toLocaleDateString('es-CO', {
-                          weekday: 'short',
-                          day: '2-digit',
-                          month: 'short',
-                        })}
+                        {(() => {
+                          const [year, month, day] = workDay.date.split('-').map(Number);
+                          const date = new Date(year, month - 1, day);
+                          return date.toLocaleDateString('es-CO', {
+                            weekday: 'short',
+                            day: '2-digit',
+                            month: 'short',
+                          });
+                        })()}
                         {workDay.isHoliday && (
                           <Badge variant="destructive" className="ml-2 text-xs">
                             Festivo
