@@ -23,9 +23,9 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   let extraHoursPay = 0;
 
   // Check if next day is Sunday
-  const workDate = new Date(date);
-  const nextDay = new Date(workDate);
-  nextDay.setDate(nextDay.getDate() + 1);
+  const [year, month, day] = date.split('-').map(Number);
+  const workDate = new Date(year, month - 1, day);
+  const nextDay = new Date(year, month - 1, day + 1);
   const isNextDaySunday = nextDay.getDay() === 0;
 
   // Calculate night surcharge

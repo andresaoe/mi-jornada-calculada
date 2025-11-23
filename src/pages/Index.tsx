@@ -21,7 +21,8 @@ const Index = () => {
 
   const filteredWorkDays = useMemo(() => {
     return workDays.filter(workDay => {
-      const workDayDate = new Date(workDay.date);
+      const [year, month, day] = workDay.date.split('-').map(Number);
+      const workDayDate = new Date(year, month - 1, day);
       return (
         workDayDate.getMonth() === currentDate.getMonth() &&
         workDayDate.getFullYear() === currentDate.getFullYear()
