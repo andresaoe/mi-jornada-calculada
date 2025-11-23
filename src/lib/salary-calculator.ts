@@ -15,18 +15,37 @@ const EXTRA_HOURS_HOLIDAY_NIGHT = 1.5; // 150% for nighttime extra hours on holi
 const NIGHT_HOLIDAY_SURCHARGE = 1.1; // 110% for night work on holidays
 
 export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
-  const { shiftType, regularHours, extraHours, isHoliday } = workDay;
+  const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
   
   let regularPay = regularHours * HOURLY_RATE;
   let nightSurcharge = 0;
   let holidaySurcharge = 0;
   let extraHoursPay = 0;
 
+  // Check if next day is Sunday
+  const workDate = new Date(date);
+  const nextDay = new Date(workDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const isNextDaySunday = nextDay.getDay() === 0;
+
   // Calculate night surcharge
   if (shiftType === 'nocturno') {
+    // Night shift is 9pm-5am (8 hours total)
+    // 9pm-00:00 = 3 hours (same day)
+    // 00:00-5am = 5 hours (next day)
+    const hoursBeforeMidnight = 3;
+    const hoursAfterMidnight = 5;
+
     if (isHoliday) {
+      // All hours with holiday night surcharge if current day is holiday
       nightSurcharge = regularHours * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
+    } else if (isNextDaySunday) {
+      // Split calculation: normal night until midnight, Sunday night after midnight
+      nightSurcharge = 
+        (hoursBeforeMidnight * HOURLY_RATE * NIGHT_SURCHARGE) + 
+        (hoursAfterMidnight * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE);
     } else {
+      // Normal night surcharge for all hours
       nightSurcharge = regularHours * HOURLY_RATE * NIGHT_SURCHARGE;
     }
   } else if (shiftType === 'mixto') {
