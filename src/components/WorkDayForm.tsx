@@ -84,7 +84,7 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="diurno">Diurno</SelectItem>
-                  <SelectItem value="nocturno">Nocturno (10pm-6am)</SelectItem>
+                  <SelectItem value="nocturno">Nocturno (9pm-5am)</SelectItem>
                   <SelectItem value="mixto">Mixto</SelectItem>
                 </SelectContent>
               </Select>

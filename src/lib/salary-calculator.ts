@@ -6,7 +6,7 @@ const MONTHLY_HOURS = 240; // Standard monthly working hours in Colombia
 const HOURLY_RATE = BASE_SALARY / MONTHLY_HOURS;
 
 // Colombian labor law surcharges
-const NIGHT_SURCHARGE = 0.35; // 35% for night work (10pm-6am)
+const NIGHT_SURCHARGE = 0.35; // 35% for night work (9pm-5am)
 const HOLIDAY_SURCHARGE = 0.75; // 75% for holidays
 const EXTRA_HOURS_DAY = 0.25; // 25% for daytime extra hours
 const EXTRA_HOURS_NIGHT = 0.75; // 75% for nighttime extra hours
