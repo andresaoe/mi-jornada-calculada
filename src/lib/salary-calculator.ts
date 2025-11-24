@@ -23,11 +23,10 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   let holidaySurcharge = 0;
   let extraHoursPay = 0;
 
-  // Check if next day is Sunday
+  // Check if current day is Saturday
   const [year, month, day] = date.split('-').map(Number);
   const workDate = new Date(year, month - 1, day);
-  const nextDay = new Date(year, month - 1, day + 1);
-  const isNextDaySunday = nextDay.getDay() === 0;
+  const isSaturday = workDate.getDay() === 6;
 
   // Calculate night surcharge
   if (shiftType === 'trasnocho') {
@@ -40,8 +39,8 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
     if (isHoliday) {
       // All hours with holiday night surcharge if current day is holiday
       nightSurcharge = regularHours * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
-    } else if (isNextDaySunday) {
-      // Split calculation: normal night until midnight, Sunday night after midnight
+    } else if (isSaturday) {
+      // Split calculation: normal night until midnight (3 hours), Sunday night after midnight (5 hours)
       nightSurcharge = hoursBeforeMidnight * HOURLY_RATE * NIGHT_SURCHARGE;
       sundayNightSurcharge = hoursAfterMidnight * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
     } else {
