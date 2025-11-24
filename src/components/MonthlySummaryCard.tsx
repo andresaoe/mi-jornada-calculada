@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MonthlySummary } from '@/types/workday';
 import { formatCurrency } from '@/lib/salary-calculator';
-import { TrendingUp, DollarSign, Clock, Calendar } from 'lucide-react';
+import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar } from 'lucide-react';
 
 interface MonthlySummaryCardProps {
   summary: MonthlySummary;
@@ -17,10 +17,22 @@ export default function MonthlySummaryCard({ summary, currentMonth }: MonthlySum
       color: 'text-primary',
     },
     {
-      label: 'Total Horas',
-      value: `${summary.totalHours}h`,
-      icon: Clock,
-      color: 'text-primary',
+      label: 'Recargo Nocturno',
+      value: formatCurrency(summary.totalNightSurcharge),
+      icon: Moon,
+      color: 'text-blue-500',
+    },
+    {
+      label: 'Recargo Festivo',
+      value: formatCurrency(summary.totalHolidaySurcharge),
+      icon: PartyPopper,
+      color: 'text-purple-500',
+    },
+    {
+      label: 'Horas Extras',
+      value: formatCurrency(summary.totalExtraHoursPay),
+      icon: Clock3,
+      color: 'text-green-500',
     },
   ];
 
@@ -40,7 +52,7 @@ export default function MonthlySummaryCard({ summary, currentMonth }: MonthlySum
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <Card key={stat.label} className="shadow-md">
             <CardContent className="pt-6">
