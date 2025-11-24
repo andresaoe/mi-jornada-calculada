@@ -19,6 +19,7 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   
   let regularPay = regularHours * HOURLY_RATE;
   let nightSurcharge = 0;
+  let sundayNightSurcharge = 0;
   let holidaySurcharge = 0;
   let extraHoursPay = 0;
 
@@ -41,9 +42,8 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
       nightSurcharge = regularHours * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
     } else if (isNextDaySunday) {
       // Split calculation: normal night until midnight, Sunday night after midnight
-      nightSurcharge = 
-        (hoursBeforeMidnight * HOURLY_RATE * NIGHT_SURCHARGE) + 
-        (hoursAfterMidnight * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE);
+      nightSurcharge = hoursBeforeMidnight * HOURLY_RATE * NIGHT_SURCHARGE;
+      sundayNightSurcharge = hoursAfterMidnight * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
     } else {
       // Normal night surcharge for all hours
       nightSurcharge = regularHours * HOURLY_RATE * NIGHT_SURCHARGE;
@@ -72,12 +72,13 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
     }
   }
 
-  const totalPay = regularPay + nightSurcharge + holidaySurcharge + extraHoursPay;
+  const totalPay = regularPay + nightSurcharge + sundayNightSurcharge + holidaySurcharge + extraHoursPay;
 
   return {
     ...workDay,
     regularPay,
     nightSurcharge,
+    sundayNightSurcharge,
     holidaySurcharge,
     extraHoursPay,
     totalPay,
@@ -91,6 +92,7 @@ export function calculateMonthlySummary(workDays: WorkDay[]): MonthlySummary {
     (summary, calc) => ({
       totalRegularPay: summary.totalRegularPay + calc.regularPay,
       totalNightSurcharge: summary.totalNightSurcharge + calc.nightSurcharge,
+      totalSundayNightSurcharge: summary.totalSundayNightSurcharge + calc.sundayNightSurcharge,
       totalHolidaySurcharge: summary.totalHolidaySurcharge + calc.holidaySurcharge,
       totalExtraHoursPay: summary.totalExtraHoursPay + calc.extraHoursPay,
       totalPay: summary.totalPay + calc.totalPay,
@@ -100,6 +102,7 @@ export function calculateMonthlySummary(workDays: WorkDay[]): MonthlySummary {
     {
       totalRegularPay: 0,
       totalNightSurcharge: 0,
+      totalSundayNightSurcharge: 0,
       totalHolidaySurcharge: 0,
       totalExtraHoursPay: 0,
       totalPay: 0,

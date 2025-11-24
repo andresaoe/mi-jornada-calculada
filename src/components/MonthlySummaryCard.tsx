@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MonthlySummary } from '@/types/workday';
 import { formatCurrency } from '@/lib/salary-calculator';
-import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar } from 'lucide-react';
+import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar, Sun } from 'lucide-react';
 
 interface MonthlySummaryCardProps {
   summary: MonthlySummary;
@@ -9,6 +9,8 @@ interface MonthlySummaryCardProps {
 }
 
 export default function MonthlySummaryCard({ summary, currentMonth }: MonthlySummaryCardProps) {
+  const totalNightSurcharges = summary.totalNightSurcharge + summary.totalSundayNightSurcharge;
+
   const stats = [
     {
       label: 'Días Trabajados',
@@ -17,8 +19,8 @@ export default function MonthlySummaryCard({ summary, currentMonth }: MonthlySum
       color: 'text-primary',
     },
     {
-      label: 'Recargo Nocturno',
-      value: formatCurrency(summary.totalNightSurcharge),
+      label: 'Recargo Nocturno Total',
+      value: formatCurrency(totalNightSurcharges),
       icon: Moon,
       color: 'text-blue-500',
     },
@@ -85,6 +87,14 @@ export default function MonthlySummaryCard({ summary, currentMonth }: MonthlySum
               <span className="text-sm text-muted-foreground">Recargo Nocturno</span>
               <span className="font-semibold text-accent">
                 +{formatCurrency(summary.totalNightSurcharge)}
+              </span>
+            </div>
+          )}
+          {summary.totalSundayNightSurcharge > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Recargo Nocturno Dominical</span>
+              <span className="font-semibold text-accent">
+                +{formatCurrency(summary.totalSundayNightSurcharge)}
               </span>
             </div>
           )}
