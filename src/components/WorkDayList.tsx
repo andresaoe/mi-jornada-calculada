@@ -2,8 +2,9 @@ import { WorkDay } from '@/types/workday';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Calendar } from 'lucide-react';
+import { Pencil, Trash2, Calendar, FileSpreadsheet } from 'lucide-react';
 import { calculateWorkDay, formatCurrency } from '@/lib/salary-calculator';
+import * as XLSX from 'xlsx';
 import {
   Table,
   TableBody,
@@ -29,7 +30,6 @@ export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListP
       diurno_am: 'default',
       tarde_pm: 'secondary',
       trasnocho: 'outline',
-      mixto: 'outline',
     };
     return variants[shiftType as keyof typeof variants] || 'default';
   };
@@ -39,17 +39,62 @@ export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListP
       diurno_am: 'Diurno AM',
       tarde_pm: 'Tarde PM',
       trasnocho: 'Trasnocho',
-      mixto: 'Mixto',
     };
     return labels[shiftType as keyof typeof labels] || shiftType;
+  };
+
+  const exportToExcel = () => {
+    const data = sortedWorkDays.map((workDay) => {
+      const calculation = calculateWorkDay(workDay);
+      const [year, month, day] = workDay.date.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      
+      return {
+        Fecha: date.toLocaleDateString('es-CO', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+        Turno: getShiftLabel(workDay.shiftType),
+        'Horas Ordinarias': workDay.regularHours,
+        'Horas Extras': workDay.extraHours,
+        'Festivo': workDay.isHoliday ? 'Sí' : 'No',
+        'Pago Ordinario': calculation.regularPay,
+        'Recargo Nocturno': calculation.nightSurcharge,
+        'Recargo Festivo': calculation.holidaySurcharge,
+        'Pago Horas Extras': calculation.extraHoursPay,
+        'Pago Total': calculation.totalPay,
+        'Notas': workDay.notes || '',
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Días Trabajados');
+    
+    const fileName = `dias_trabajados_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
   };
 
   return (
     <Card className="shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calendar className="h-5 w-5" />
-          Registro de Días Trabajados
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Registro de Días Trabajados
+          </div>
+          {workDays.length > 0 && (
+            <Button
+              onClick={exportToExcel}
+              className="bg-[#1D6F42] hover:bg-[#155c37] text-white"
+              size="sm"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Exportar a Excel
+            </Button>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
