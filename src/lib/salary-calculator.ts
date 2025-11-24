@@ -48,14 +48,6 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
       // Normal night surcharge for all hours
       nightSurcharge = regularHours * HOURLY_RATE * NIGHT_SURCHARGE;
     }
-  } else if (shiftType === 'mixto') {
-    // Assume 50% of hours are at night for mixed shifts
-    const nightHours = regularHours * 0.5;
-    if (isHoliday) {
-      nightSurcharge = nightHours * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
-    } else {
-      nightSurcharge = nightHours * HOURLY_RATE * NIGHT_SURCHARGE;
-    }
   }
 
   // Calculate holiday surcharge (only for non-night or in addition to night)

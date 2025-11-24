@@ -86,7 +86,6 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
                   <SelectItem value="diurno_am">Diurno AM (5am-1pm)</SelectItem>
                   <SelectItem value="tarde_pm">Tarde PM (1pm-9pm)</SelectItem>
                   <SelectItem value="trasnocho">Trasnocho (9pm-5am)</SelectItem>
-                  <SelectItem value="mixto">Mixto</SelectItem>
                 </SelectContent>
               </Select>
             </div>
