@@ -14,6 +14,7 @@ export interface WorkDay {
 export interface WorkDayCalculation extends WorkDay {
   regularPay: number;
   nightSurcharge: number;
+  sundayNightSurcharge: number;
   holidaySurcharge: number;
   extraHoursPay: number;
   totalPay: number;
@@ -22,6 +23,7 @@ export interface WorkDayCalculation extends WorkDay {
 export interface MonthlySummary {
   totalRegularPay: number;
   totalNightSurcharge: number;
+  totalSundayNightSurcharge: number;
   totalHolidaySurcharge: number;
   totalExtraHoursPay: number;
   totalPay: number;
