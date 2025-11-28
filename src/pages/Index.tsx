@@ -135,29 +135,29 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md">
-                <Briefcase className="h-6 w-6 text-primary-foreground" />
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md">
+                <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Control de Nómina</h1>
-                <p className="text-sm text-muted-foreground">Gestiona tus días laborales y calcula tu salario</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Control de Nómina</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Gestiona tus días laborales y calcula tu salario</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-semibold text-foreground">Bienvenido, Andres Osorio</p>
+            <div className="text-center sm:text-right">
+              <p className="text-base sm:text-lg font-semibold text-foreground">Bienvenido, Andres Osorio</p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column - Form and List */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <WorkDayForm 
               onSubmit={handleSubmit} 
               editingWorkDay={editingWorkDay}
@@ -165,23 +165,25 @@ const Index = () => {
             />
             
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg sm:text-xl font-semibold">
                 {currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
               </h2>
-              <div className="flex gap-2">
+              <div className="flex gap-1 sm:gap-2">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => changeMonth('prev')}
+                  className="h-8 w-8 sm:h-10 sm:w-10"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={() => changeMonth('next')}
+                  className="h-8 w-8 sm:h-10 sm:w-10"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
@@ -195,7 +197,7 @@ const Index = () => {
 
           {/* Right Column - Summary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-6">
+            <div className="lg:sticky lg:top-6">
               <MonthlySummaryCard 
                 summary={monthlySummary}
                 currentMonth={currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
