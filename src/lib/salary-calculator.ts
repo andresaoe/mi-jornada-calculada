@@ -1,8 +1,8 @@
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
 
 // Base salary
-const BASE_SALARY = 2400500;
-const MONTHLY_HOURS = 240; // Standard monthly working hours in Colombia
+const BASE_SALARY = 2416500;
+const MONTHLY_HOURS = 220; // Standard monthly working hours for salary calculation
 const HOURLY_RATE = BASE_SALARY / MONTHLY_HOURS;
 
 // Colombian labor law surcharges

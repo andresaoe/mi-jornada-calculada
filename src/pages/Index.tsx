@@ -95,13 +95,18 @@ const Index = () => {
       {/* Header */}
       <header className="bg-card border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md">
-              <Briefcase className="h-6 w-6 text-primary-foreground" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md">
+                <Briefcase className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Control de Nómina</h1>
+                <p className="text-sm text-muted-foreground">Gestiona tus días laborales y calcula tu salario</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Control de Nómina</h1>
-              <p className="text-sm text-muted-foreground">Gestiona tus días laborales y calcula tu salario</p>
+            <div className="text-right">
+              <p className="text-lg font-semibold text-foreground">Bienvenido, Andres Osorio</p>
             </div>
           </div>
         </div>
