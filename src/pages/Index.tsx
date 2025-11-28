@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { WorkDay } from '@/types/workday';
 import WorkDayForm from '@/components/WorkDayForm';
 import WorkDayList from '@/components/WorkDayList';
@@ -8,12 +8,53 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Preferences } from '@capacitor/preferences';
+
+const STORAGE_KEY = 'workdays_data';
 
 const Index = () => {
   const { toast } = useToast();
   const [workDays, setWorkDays] = useState<WorkDay[]>([]);
   const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load data from local storage on mount
+  useEffect(() => {
+    const loadWorkDays = async () => {
+      try {
+        const { value } = await Preferences.get({ key: STORAGE_KEY });
+        if (value) {
+          const parsedData = JSON.parse(value);
+          setWorkDays(parsedData);
+        }
+      } catch (error) {
+        console.error('Error loading work days:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadWorkDays();
+  }, []);
+
+  // Save data to local storage whenever workDays changes
+  useEffect(() => {
+    const saveWorkDays = async () => {
+      if (!isLoading) {
+        try {
+          await Preferences.set({
+            key: STORAGE_KEY,
+            value: JSON.stringify(workDays),
+          });
+        } catch (error) {
+          console.error('Error saving work days:', error);
+        }
+      }
+    };
+
+    saveWorkDays();
+  }, [workDays, isLoading]);
 
   const currentMonthYear = useMemo(() => {
     return currentDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
