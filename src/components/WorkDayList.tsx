@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Calendar, FileSpreadsheet } from 'lucide-react';
 import { calculateWorkDay, formatCurrency } from '@/lib/salary-calculator';
 import * as XLSX from 'xlsx';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import { useToast } from '@/hooks/use-toast';
 import {
   Table,
   TableBody,
@@ -21,6 +24,7 @@ interface WorkDayListProps {
 }
 
 export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListProps) {
+  const { toast } = useToast();
   const sortedWorkDays = [...workDays].sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
@@ -43,38 +47,72 @@ export default function WorkDayList({ workDays, onEdit, onDelete }: WorkDayListP
     return labels[shiftType as keyof typeof labels] || shiftType;
   };
 
-  const exportToExcel = () => {
-    const data = sortedWorkDays.map((workDay) => {
-      const calculation = calculateWorkDay(workDay);
-      const [year, month, day] = workDay.date.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      
-      return {
-        Fecha: date.toLocaleDateString('es-CO', {
-          weekday: 'short',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        }),
-        Turno: getShiftLabel(workDay.shiftType),
-        'Horas Ordinarias': workDay.regularHours,
-        'Horas Extras': workDay.extraHours,
-        'Festivo': workDay.isHoliday ? 'Sí' : 'No',
-        'Pago Ordinario': calculation.regularPay,
-        'Recargo Nocturno': calculation.nightSurcharge,
-        'Recargo Festivo': calculation.holidaySurcharge,
-        'Pago Horas Extras': calculation.extraHoursPay,
-        'Pago Total': calculation.totalPay,
-        'Notas': workDay.notes || '',
-      };
-    });
+  const exportToExcel = async () => {
+    try {
+      const data = sortedWorkDays.map((workDay) => {
+        const calculation = calculateWorkDay(workDay);
+        const [year, month, day] = workDay.date.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        
+        return {
+          Fecha: date.toLocaleDateString('es-CO', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+          Turno: getShiftLabel(workDay.shiftType),
+          'Horas Ordinarias': workDay.regularHours,
+          'Horas Extras': workDay.extraHours,
+          'Festivo': workDay.isHoliday ? 'Sí' : 'No',
+          'Pago Ordinario': calculation.regularPay,
+          'Recargo Nocturno': calculation.nightSurcharge,
+          'Recargo Festivo': calculation.holidaySurcharge,
+          'Pago Horas Extras': calculation.extraHoursPay,
+          'Pago Total': calculation.totalPay,
+          'Notas': workDay.notes || '',
+        };
+      });
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Días Trabajados');
-    
-    const fileName = `dias_trabajados_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Días Trabajados');
+      
+      const fileName = `dias_trabajados_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Check if running on native mobile platform
+      if (Capacitor.isNativePlatform()) {
+        // Generate binary data for mobile
+        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+        
+        // Save to device storage
+        await Filesystem.writeFile({
+          path: fileName,
+          data: wbout,
+          directory: Directory.Documents,
+        });
+
+        toast({
+          title: "Excel exportado",
+          description: `Archivo guardado en Documentos/${fileName}`,
+        });
+      } else {
+        // Use standard download for web
+        XLSX.writeFile(workbook, fileName);
+        
+        toast({
+          title: "Excel exportado",
+          description: "El archivo se ha descargado correctamente.",
+        });
+      }
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo exportar el archivo Excel.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
