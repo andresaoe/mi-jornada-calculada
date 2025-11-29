@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Preferences } from '@capacitor/preferences';
-
 const STORAGE_KEY = 'workdays_data';
-
 const Index = () => {
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [workDays, setWorkDays] = useState<WorkDay[]>([]);
   const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -23,7 +23,11 @@ const Index = () => {
   useEffect(() => {
     const loadWorkDays = async () => {
       try {
-        const { value } = await Preferences.get({ key: STORAGE_KEY });
+        const {
+          value
+        } = await Preferences.get({
+          key: STORAGE_KEY
+        });
         if (value) {
           const parsedData = JSON.parse(value);
           setWorkDays(parsedData);
@@ -34,7 +38,6 @@ const Index = () => {
         setIsLoading(false);
       }
     };
-
     loadWorkDays();
   }, []);
 
@@ -45,80 +48,74 @@ const Index = () => {
         try {
           await Preferences.set({
             key: STORAGE_KEY,
-            value: JSON.stringify(workDays),
+            value: JSON.stringify(workDays)
           });
         } catch (error) {
           console.error('Error saving work days:', error);
         }
       }
     };
-
     saveWorkDays();
   }, [workDays, isLoading]);
-
   const currentMonthYear = useMemo(() => {
-    return currentDate.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+    return currentDate.toLocaleDateString('es-CO', {
+      month: 'long',
+      year: 'numeric'
+    });
   }, [currentDate]);
-
   const filteredWorkDays = useMemo(() => {
     return workDays.filter(workDay => {
       const [year, month, day] = workDay.date.split('-').map(Number);
       const workDayDate = new Date(year, month - 1, day);
-      return (
-        workDayDate.getMonth() === currentDate.getMonth() &&
-        workDayDate.getFullYear() === currentDate.getFullYear()
-      );
+      return workDayDate.getMonth() === currentDate.getMonth() && workDayDate.getFullYear() === currentDate.getFullYear();
     });
   }, [workDays, currentDate]);
-
   const monthlySummary = useMemo(() => {
     return calculateMonthlySummary(filteredWorkDays);
   }, [filteredWorkDays]);
-
   const handleSubmit = (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
     if (editingWorkDay) {
-      setWorkDays(workDays.map(wd => 
-        wd.id === editingWorkDay.id 
-          ? { ...workDayData, id: wd.id, createdAt: wd.createdAt }
-          : wd
-      ));
+      setWorkDays(workDays.map(wd => wd.id === editingWorkDay.id ? {
+        ...workDayData,
+        id: wd.id,
+        createdAt: wd.createdAt
+      } : wd));
       setEditingWorkDay(null);
       toast({
         title: "Día actualizado",
-        description: "El registro ha sido actualizado exitosamente.",
+        description: "El registro ha sido actualizado exitosamente."
       });
     } else {
       const newWorkDay: WorkDay = {
         ...workDayData,
         id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
       };
       setWorkDays([...workDays, newWorkDay]);
       toast({
         title: "Día registrado",
-        description: "El día laboral ha sido guardado exitosamente.",
+        description: "El día laboral ha sido guardado exitosamente."
       });
     }
   };
-
   const handleEdit = (workDay: WorkDay) => {
     setEditingWorkDay(workDay);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
   };
-
   const handleDelete = (id: string) => {
     setWorkDays(workDays.filter(wd => wd.id !== id));
     toast({
       title: "Día eliminado",
       description: "El registro ha sido eliminado.",
-      variant: "destructive",
+      variant: "destructive"
     });
   };
-
   const handleCancelEdit = () => {
     setEditingWorkDay(null);
   };
-
   const changeMonth = (direction: 'prev' | 'next') => {
     setCurrentDate(prevDate => {
       const newDate = new Date(prevDate);
@@ -130,9 +127,7 @@ const Index = () => {
       return newDate;
     });
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-4 sm:py-6">
@@ -147,7 +142,7 @@ const Index = () => {
               </div>
             </div>
             <div className="text-center sm:text-right">
-              <p className="text-base sm:text-lg font-semibold text-foreground">Bienvenido, Andres Osorio</p>
+              <p className="text-base sm:text-lg font-semibold text-foreground">Bienvenido!</p>
             </div>
           </div>
         </div>
@@ -158,56 +153,33 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column - Form and List */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            <WorkDayForm 
-              onSubmit={handleSubmit} 
-              editingWorkDay={editingWorkDay}
-              onCancelEdit={handleCancelEdit}
-            />
+            <WorkDayForm onSubmit={handleSubmit} editingWorkDay={editingWorkDay} onCancelEdit={handleCancelEdit} />
             
             <div className="flex items-center justify-between">
               <h2 className="text-lg sm:text-xl font-semibold">
                 {currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
               </h2>
               <div className="flex gap-1 sm:gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => changeMonth('prev')}
-                  className="h-8 w-8 sm:h-10 sm:w-10"
-                >
+                <Button variant="outline" size="icon" onClick={() => changeMonth('prev')} className="h-8 w-8 sm:h-10 sm:w-10">
                   <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => changeMonth('next')}
-                  className="h-8 w-8 sm:h-10 sm:w-10"
-                >
+                <Button variant="outline" size="icon" onClick={() => changeMonth('next')} className="h-8 w-8 sm:h-10 sm:w-10">
                   <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
 
-            <WorkDayList 
-              workDays={filteredWorkDays}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+            <WorkDayList workDays={filteredWorkDays} onEdit={handleEdit} onDelete={handleDelete} />
           </div>
 
           {/* Right Column - Summary */}
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-6">
-              <MonthlySummaryCard 
-                summary={monthlySummary}
-                currentMonth={currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
-              />
+              <MonthlySummaryCard summary={monthlySummary} currentMonth={currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)} />
             </div>
           </div>
         </div>
       </main>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
