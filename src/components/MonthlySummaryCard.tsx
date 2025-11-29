@@ -85,7 +85,7 @@ export default function MonthlySummaryCard({
                 +{formatCurrency(summary.totalSundayNightSurcharge)}
               </span>
             </div>}
-          {summary.totalHolidaySurcharge > 0 && <div className="flex justify-between items-center">
+          {summary.totalHolidaySurcharge > 0 && <div className="flex justify-between items-center text-muted-foreground">
               <span className="text-sm text-muted-foreground">Recargo Festivo</span>
               <span className="font-semibold text-accent">
                 +{formatCurrency(summary.totalHolidaySurcharge)}
