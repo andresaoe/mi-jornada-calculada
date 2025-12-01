@@ -1,62 +1,90 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { WorkDay } from '@/types/workday';
 import WorkDayForm from '@/components/WorkDayForm';
 import WorkDayList from '@/components/WorkDayList';
 import MonthlySummaryCard from '@/components/MonthlySummaryCard';
+import UserProfile from '@/components/UserProfile';
 import { calculateMonthlySummary } from '@/lib/salary-calculator';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Preferences } from '@capacitor/preferences';
-const STORAGE_KEY = 'workdays_data';
+import { supabase } from '@/integrations/supabase/client';
 const Index = () => {
-  const {
-    toast
-  } = useToast();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [workDays, setWorkDays] = useState<WorkDay[]>([]);
   const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Load data from local storage on mount
+  // Check authentication and load user data
   useEffect(() => {
-    const loadWorkDays = async () => {
-      try {
-        const {
-          value
-        } = await Preferences.get({
-          key: STORAGE_KEY
-        });
-        if (value) {
-          const parsedData = JSON.parse(value);
-          setWorkDays(parsedData);
-        }
-      } catch (error) {
-        console.error('Error loading work days:', error);
-      } finally {
-        setIsLoading(false);
+    const initUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/auth');
+        return;
       }
-    };
-    loadWorkDays();
-  }, []);
 
-  // Save data to local storage whenever workDays changes
-  useEffect(() => {
-    const saveWorkDays = async () => {
-      if (!isLoading) {
-        try {
-          await Preferences.set({
-            key: STORAGE_KEY,
-            value: JSON.stringify(workDays)
-          });
-        } catch (error) {
-          console.error('Error saving work days:', error);
-        }
-      }
+      setUserId(user.id);
+      loadWorkDays(user.id);
     };
-    saveWorkDays();
-  }, [workDays, isLoading]);
+
+    initUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate('/auth');
+      } else if (session.user.id !== userId) {
+        setUserId(session.user.id);
+        loadWorkDays(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  // Load work days from Supabase
+  const loadWorkDays = async (uid: string) => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('work_days')
+        .select('*')
+        .eq('user_id', uid)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        // Transform database format to WorkDay format
+        const transformedData: WorkDay[] = data.map((item) => ({
+          id: item.id,
+          date: item.date,
+          shiftType: item.shift_type as 'diurno_am' | 'tarde_pm' | 'trasnocho',
+          regularHours: Number(item.regular_hours),
+          extraHours: Number(item.extra_hours),
+          isHoliday: item.is_holiday,
+          notes: item.notes || '',
+          createdAt: item.created_at,
+        }));
+        setWorkDays(transformedData);
+      }
+    } catch (error: any) {
+      console.error('Error loading work days:', error);
+      toast({
+        title: "Error al cargar datos",
+        description: error.message || "No se pudieron cargar los registros",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const currentMonthYear = useMemo(() => {
     return currentDate.toLocaleDateString('es-CO', {
       month: 'long',
@@ -73,28 +101,81 @@ const Index = () => {
   const monthlySummary = useMemo(() => {
     return calculateMonthlySummary(filteredWorkDays);
   }, [filteredWorkDays]);
-  const handleSubmit = (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
-    if (editingWorkDay) {
-      setWorkDays(workDays.map(wd => wd.id === editingWorkDay.id ? {
-        ...workDayData,
-        id: wd.id,
-        createdAt: wd.createdAt
-      } : wd));
-      setEditingWorkDay(null);
+  const handleSubmit = async (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
+    if (!userId) return;
+
+    try {
+      if (editingWorkDay) {
+        // Update existing work day
+        const { error } = await supabase
+          .from('work_days')
+          .update({
+            date: workDayData.date,
+            shift_type: workDayData.shiftType,
+            regular_hours: workDayData.regularHours,
+            extra_hours: workDayData.extraHours,
+            is_holiday: workDayData.isHoliday,
+            notes: workDayData.notes,
+          })
+          .eq('id', editingWorkDay.id)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+
+        setWorkDays(workDays.map(wd => 
+          wd.id === editingWorkDay.id 
+            ? { ...workDayData, id: wd.id, createdAt: wd.createdAt }
+            : wd
+        ));
+        setEditingWorkDay(null);
+        
+        toast({
+          title: "Día actualizado",
+          description: "El registro ha sido actualizado exitosamente."
+        });
+      } else {
+        // Insert new work day
+        const { data, error } = await supabase
+          .from('work_days')
+          .insert({
+            user_id: userId,
+            date: workDayData.date,
+            shift_type: workDayData.shiftType,
+            regular_hours: workDayData.regularHours,
+            extra_hours: workDayData.extraHours,
+            is_holiday: workDayData.isHoliday,
+            notes: workDayData.notes,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          const newWorkDay: WorkDay = {
+            id: data.id,
+            date: data.date,
+            shiftType: data.shift_type as 'diurno_am' | 'tarde_pm' | 'trasnocho',
+            regularHours: Number(data.regular_hours),
+            extraHours: Number(data.extra_hours),
+            isHoliday: data.is_holiday,
+            notes: data.notes || '',
+            createdAt: data.created_at,
+          };
+          setWorkDays([...workDays, newWorkDay]);
+        }
+
+        toast({
+          title: "Día registrado",
+          description: "El día laboral ha sido guardado exitosamente."
+        });
+      }
+    } catch (error: any) {
+      console.error('Error saving work day:', error);
       toast({
-        title: "Día actualizado",
-        description: "El registro ha sido actualizado exitosamente."
-      });
-    } else {
-      const newWorkDay: WorkDay = {
-        ...workDayData,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString()
-      };
-      setWorkDays([...workDays, newWorkDay]);
-      toast({
-        title: "Día registrado",
-        description: "El día laboral ha sido guardado exitosamente."
+        title: "Error al guardar",
+        description: error.message || "No se pudo guardar el registro",
+        variant: "destructive",
       });
     }
   };
@@ -105,13 +186,32 @@ const Index = () => {
       behavior: 'smooth'
     });
   };
-  const handleDelete = (id: string) => {
-    setWorkDays(workDays.filter(wd => wd.id !== id));
-    toast({
-      title: "Día eliminado",
-      description: "El registro ha sido eliminado.",
-      variant: "destructive"
-    });
+  const handleDelete = async (id: string) => {
+    if (!userId) return;
+
+    try {
+      const { error } = await supabase
+        .from('work_days')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      setWorkDays(workDays.filter(wd => wd.id !== id));
+      toast({
+        title: "Día eliminado",
+        description: "El registro ha sido eliminado.",
+        variant: "destructive"
+      });
+    } catch (error: any) {
+      console.error('Error deleting work day:', error);
+      toast({
+        title: "Error al eliminar",
+        description: error.message || "No se pudo eliminar el registro",
+        variant: "destructive",
+      });
+    }
   };
   const handleCancelEdit = () => {
     setEditingWorkDay(null);
@@ -141,9 +241,7 @@ const Index = () => {
                 <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Gestiona tus días laborales y calcula tu salario</p>
               </div>
             </div>
-            <div className="text-center sm:text-right">
-              <p className="text-base sm:text-lg font-semibold text-foreground">Bienvenido!</p>
-            </div>
+            <UserProfile />
           </div>
         </div>
       </header>
