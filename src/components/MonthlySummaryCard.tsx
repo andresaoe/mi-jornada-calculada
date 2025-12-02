@@ -1,15 +1,30 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MonthlySummary } from '@/types/workday';
+import { Button } from '@/components/ui/button';
+import { MonthlySummary, SurchargesSummary } from '@/types/workday';
 import { formatCurrency } from '@/lib/salary-calculator';
-import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar, Sun } from 'lucide-react';
+import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar, Sun, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
 interface MonthlySummaryCardProps {
   summary: MonthlySummary;
   currentMonth: string;
+  currentMonthSurcharges: SurchargesSummary;
 }
 export default function MonthlySummaryCard({
   summary,
-  currentMonth
+  currentMonth,
+  currentMonthSurcharges
 }: MonthlySummaryCardProps) {
+  const navigate = useNavigate();
+
+  const handleViewCurrentMonthSurcharges = () => {
+    navigate('/recargos-mes-actual', {
+      state: {
+        surcharges: currentMonthSurcharges,
+        currentMonth
+      }
+    });
+  };
   const totalNightSurcharges = summary.totalNightSurcharge + summary.totalSundayNightSurcharge;
   const stats = [{
     label: 'Días Trabajados',
@@ -70,36 +85,36 @@ export default function MonthlySummaryCard({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Pago Ordinario</span>
+            <span className="text-sm text-muted-foreground">Pago Ordinario (Mes Actual)</span>
             <span className="font-semibold">{formatCurrency(summary.totalRegularPay)}</span>
           </div>
           {summary.totalNightSurcharge > 0 && <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Recargo Nocturno</span>
+              <span className="text-sm text-muted-foreground">Recargo Nocturno (Mes Anterior)</span>
               <span className="font-semibold text-stone-950">
                 +{formatCurrency(summary.totalNightSurcharge)}
               </span>
             </div>}
           {summary.totalSundayNightSurcharge > 0 && <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Recargo Nocturno Dominical</span>
+              <span className="text-sm text-muted-foreground">Recargo Nocturno Dominical (Mes Anterior)</span>
               <span className="font-semibold text-stone-950">
                 +{formatCurrency(summary.totalSundayNightSurcharge)}
               </span>
             </div>}
           {summary.totalHolidaySurcharge > 0 && <div className="flex justify-between items-center text-muted-foreground">
-              <span className="text-sm text-muted-foreground">Recargo Festivo</span>
+              <span className="text-sm text-muted-foreground">Recargo Festivo (Mes Anterior)</span>
               <span className="font-semibold text-muted-foreground">
                 +{formatCurrency(summary.totalHolidaySurcharge)}
               </span>
             </div>}
           {summary.totalExtraHoursPay > 0 && <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Horas Extras</span>
+              <span className="text-sm text-muted-foreground">Horas Extras (Mes Anterior)</span>
               <span className="font-semibold text-accent">
                 +{formatCurrency(summary.totalExtraHoursPay)}
               </span>
             </div>}
           <div className="border-t pt-3 mt-3">
             <div className="flex justify-between items-center">
-              <span className="font-semibold">Total</span>
+              <span className="font-semibold">Total a Recibir</span>
               <span className="text-xl font-bold text-success">
                 {formatCurrency(summary.totalPay)}
               </span>
@@ -107,5 +122,34 @@ export default function MonthlySummaryCard({
           </div>
         </CardContent>
       </Card>
+
+      {/* Button to view current month surcharges */}
+      {currentMonthSurcharges.totalSurcharges > 0 && (
+        <Card className="shadow-md bg-muted/50">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-sm mb-1">Recargos del Mes Actual</p>
+                  <p className="text-xs text-muted-foreground">
+                    Se pagarán el próximo mes
+                  </p>
+                </div>
+                <span className="font-bold text-lg">
+                  {formatCurrency(currentMonthSurcharges.totalSurcharges)}
+                </span>
+              </div>
+              <Button 
+                onClick={handleViewCurrentMonthSurcharges}
+                variant="outline"
+                className="w-full"
+              >
+                Ver Detalles
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>;
 }

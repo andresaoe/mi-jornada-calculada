@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import SplashScreen from "./components/SplashScreen";
+import CurrentMonthSurcharges from "./pages/CurrentMonthSurcharges";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,10 @@ const App = () => {
             <Route
               path="/auth"
               element={!isAuthenticated ? <Auth /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/recargos-mes-actual"
+              element={isAuthenticated ? <CurrentMonthSurcharges /> : <Navigate to="/auth" replace />}
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
