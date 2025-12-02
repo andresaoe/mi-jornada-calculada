@@ -5,7 +5,7 @@ import WorkDayForm from '@/components/WorkDayForm';
 import WorkDayList from '@/components/WorkDayList';
 import MonthlySummaryCard from '@/components/MonthlySummaryCard';
 import UserProfile from '@/components/UserProfile';
-import { calculateMonthlySummary } from '@/lib/salary-calculator';
+import { calculateMonthlySummary, calculateSurchargesOnly } from '@/lib/salary-calculator';
 import { Button } from '@/components/ui/button';
 import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -111,9 +111,56 @@ const Index = () => {
       return workDayDate.getMonth() === currentDate.getMonth() && workDayDate.getFullYear() === currentDate.getFullYear();
     });
   }, [workDays, currentDate]);
-  const monthlySummary = useMemo(() => {
-    return calculateMonthlySummary(filteredWorkDays, baseSalary);
+
+  // Filter previous month work days for surcharges
+  const previousMonthWorkDays = useMemo(() => {
+    const prevMonth = new Date(currentDate);
+    prevMonth.setMonth(prevMonth.getMonth() - 1);
+    
+    return workDays.filter(workDay => {
+      const [year, month, day] = workDay.date.split('-').map(Number);
+      const workDayDate = new Date(year, month - 1, day);
+      return workDayDate.getMonth() === prevMonth.getMonth() && 
+             workDayDate.getFullYear() === prevMonth.getFullYear();
+    });
+  }, [workDays, currentDate]);
+
+  // Calculate current month regular pay only
+  const currentMonthRegularPay = useMemo(() => {
+    const calculations = filteredWorkDays.map(wd => {
+      const hourlyRate = baseSalary / 220;
+      return wd.regularHours * hourlyRate;
+    });
+    return calculations.reduce((sum, pay) => sum + pay, 0);
   }, [filteredWorkDays, baseSalary]);
+
+  // Calculate previous month surcharges (to be paid this month)
+  const previousMonthSurcharges = useMemo(() => {
+    return calculateSurchargesOnly(previousMonthWorkDays, baseSalary);
+  }, [previousMonthWorkDays, baseSalary]);
+
+  // Calculate current month surcharges (to be paid next month)
+  const currentMonthSurcharges = useMemo(() => {
+    return calculateSurchargesOnly(filteredWorkDays, baseSalary);
+  }, [filteredWorkDays, baseSalary]);
+
+  // Total to receive this month: current regular + previous surcharges
+  const totalToReceive = useMemo(() => {
+    return currentMonthRegularPay + previousMonthSurcharges.totalSurcharges;
+  }, [currentMonthRegularPay, previousMonthSurcharges]);
+
+  // For the summary card display
+  const monthlySummary = useMemo(() => {
+    const summary = calculateMonthlySummary(filteredWorkDays, baseSalary);
+    return {
+      ...summary,
+      totalPay: totalToReceive,
+      totalNightSurcharge: previousMonthSurcharges.totalNightSurcharge,
+      totalSundayNightSurcharge: previousMonthSurcharges.totalSundayNightSurcharge,
+      totalHolidaySurcharge: previousMonthSurcharges.totalHolidaySurcharge,
+      totalExtraHoursPay: previousMonthSurcharges.totalExtraHoursPay,
+    };
+  }, [filteredWorkDays, baseSalary, totalToReceive, previousMonthSurcharges]);
   const handleSubmit = async (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
     if (!userId) return;
 
@@ -286,7 +333,11 @@ const Index = () => {
           {/* Right Column - Summary */}
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-6">
-              <MonthlySummaryCard summary={monthlySummary} currentMonth={currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)} />
+              <MonthlySummaryCard 
+                summary={monthlySummary} 
+                currentMonth={currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
+                currentMonthSurcharges={currentMonthSurcharges}
+              />
             </div>
           </div>
         </div>

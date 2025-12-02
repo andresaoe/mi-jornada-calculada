@@ -30,3 +30,20 @@ export interface MonthlySummary {
   daysWorked: number;
   totalHours: number;
 }
+
+export interface SurchargesSummary {
+  totalNightSurcharge: number;
+  totalSundayNightSurcharge: number;
+  totalHolidaySurcharge: number;
+  totalExtraHoursPay: number;
+  totalSurcharges: number;
+}
+
+export interface PayrollSummary {
+  currentMonthRegularPay: number;
+  previousMonthSurcharges: SurchargesSummary;
+  currentMonthSurcharges: SurchargesSummary;
+  totalToReceive: number;
+  daysWorked: number;
+  totalHours: number;
+}

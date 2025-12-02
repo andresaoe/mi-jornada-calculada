@@ -112,6 +112,31 @@ export function calculateMonthlySummary(workDays: WorkDay[], baseSalary: number 
   );
 }
 
+export function calculateSurchargesOnly(workDays: WorkDay[], baseSalary: number = DEFAULT_BASE_SALARY) {
+  const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary));
+  
+  return calculations.reduce(
+    (summary, calc) => {
+      const surchargesTotal = calc.nightSurcharge + calc.sundayNightSurcharge + 
+                              calc.holidaySurcharge + calc.extraHoursPay;
+      return {
+        totalNightSurcharge: summary.totalNightSurcharge + calc.nightSurcharge,
+        totalSundayNightSurcharge: summary.totalSundayNightSurcharge + calc.sundayNightSurcharge,
+        totalHolidaySurcharge: summary.totalHolidaySurcharge + calc.holidaySurcharge,
+        totalExtraHoursPay: summary.totalExtraHoursPay + calc.extraHoursPay,
+        totalSurcharges: summary.totalSurcharges + surchargesTotal,
+      };
+    },
+    {
+      totalNightSurcharge: 0,
+      totalSundayNightSurcharge: 0,
+      totalHolidaySurcharge: 0,
+      totalExtraHoursPay: 0,
+      totalSurcharges: 0,
+    }
+  );
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
