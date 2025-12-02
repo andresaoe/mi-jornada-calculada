@@ -18,6 +18,7 @@ const Index = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [baseSalary, setBaseSalary] = useState<number>(2416500);
 
   // Check authentication and load user data
   useEffect(() => {
@@ -30,6 +31,18 @@ const Index = () => {
       }
 
       setUserId(user.id);
+      
+      // Load user profile to get base salary
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('base_salary')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.base_salary) {
+        setBaseSalary(Number(profile.base_salary));
+      }
+      
       loadWorkDays(user.id);
     };
 
@@ -99,8 +112,8 @@ const Index = () => {
     });
   }, [workDays, currentDate]);
   const monthlySummary = useMemo(() => {
-    return calculateMonthlySummary(filteredWorkDays);
-  }, [filteredWorkDays]);
+    return calculateMonthlySummary(filteredWorkDays, baseSalary);
+  }, [filteredWorkDays, baseSalary]);
   const handleSubmit = async (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
     if (!userId) return;
 
@@ -267,7 +280,7 @@ const Index = () => {
               </div>
             </div>
 
-            <WorkDayList workDays={filteredWorkDays} onEdit={handleEdit} onDelete={handleDelete} />
+            <WorkDayList workDays={filteredWorkDays} onEdit={handleEdit} onDelete={handleDelete} baseSalary={baseSalary} />
           </div>
 
           {/* Right Column - Summary */}
