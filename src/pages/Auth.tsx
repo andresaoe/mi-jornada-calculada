@@ -103,16 +103,27 @@ export default function Auth() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleEmailAuth} className="space-y-4">
-            {!isLogin && <>
+            {!isLogin && (
+              <>
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Nombre Completo</Label>
                   <Input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required={!isLogin} placeholder="tu nombre" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="baseSalary">Base Salarial Mensual</Label>
-                  <Input id="baseSalary" type="number" value={baseSalary} onChange={e => setBaseSalary(e.target.value)} required={!isLogin} min="0" step="1000" placeholder="1423500" />
+                  <Input 
+                    id="baseSalary" 
+                    type="number" 
+                    value={baseSalary} 
+                    onChange={e => setBaseSalary(e.target.value)} 
+                    required={!isLogin} 
+                    placeholder="2416500"
+                    min="0"
+                    step="1000"
+                  />
                 </div>
-              </>}
+              </>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="email">Correo Electrónico</Label>
@@ -135,9 +146,11 @@ export default function Auth() {
             </Button>
           </form>
 
-          {!isLogin && <p className="text-xs text-center text-muted-foreground">
+          {!isLogin && (
+            <p className="text-xs text-center text-muted-foreground">
               Al dar click en el botón registrarse se enviará un correo de verificación a tu email, sí NO aparece en la bandeja de entrada por favor revisa en el Correo NO deseado.
-            </p>}
+            </p>
+          )}
 
           <div className="text-center text-sm">
             <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-primary hover:underline">
