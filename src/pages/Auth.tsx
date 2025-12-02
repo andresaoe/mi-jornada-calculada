@@ -103,7 +103,7 @@ export default function Auth() {
           <form onSubmit={handleEmailAuth} className="space-y-4">
             {!isLogin && <div className="space-y-2">
                 <Label htmlFor="fullName">Nombre Completo</Label>
-                <Input id="fullName" type="text" placeholder="Juan Pérez" value={fullName} onChange={e => setFullName(e.target.value)} required={!isLogin} />
+                <Input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required={!isLogin} placeholder="tu nombre" />
               </div>}
             
             <div className="space-y-2">
