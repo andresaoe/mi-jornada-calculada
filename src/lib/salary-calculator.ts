@@ -1,76 +1,124 @@
+// src/lib/salary-calculator.ts
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
+import { parseISO, getDay, isSameMonth } from 'date-fns';
 
-// Base salary (default value)
+// Constants
 const DEFAULT_BASE_SALARY = 2416500;
-const MONTHLY_HOURS = 220; // Standard monthly working hours for salary calculation
+const MONTHLY_HOURS = 220;
 
 // Colombian labor law surcharges
-const NIGHT_SURCHARGE = 0.35; // 35% for night work (Trasnocho 9pm-5am)
-const HOLIDAY_SURCHARGE = 0.75; // 75% for holidays
-const EXTRA_HOURS_DAY = 0.25; // 25% for daytime extra hours
-const EXTRA_HOURS_NIGHT = 0.75; // 75% for nighttime extra hours
-const EXTRA_HOURS_HOLIDAY_DAY = 1.0; // 100% for daytime extra hours on holidays
-const EXTRA_HOURS_HOLIDAY_NIGHT = 1.5; // 150% for nighttime extra hours on holidays
-const NIGHT_HOLIDAY_SURCHARGE = 1.1; // 110% for night work on holidays (Trasnocho)
+const SURCHARGES = {
+  NIGHT: 0.35,                    // 35% night work (9pm-5am)
+  HOLIDAY: 0.75,                  // 75% holidays
+  EXTRA_DAY: 0.25,                // 25% daytime extra hours
+  EXTRA_NIGHT: 0.75,              // 75% nighttime extra hours
+  EXTRA_HOLIDAY_DAY: 1.0,         // 100% daytime extra on holidays
+  EXTRA_HOLIDAY_NIGHT: 1.5,       // 150% nighttime extra on holidays
+  NIGHT_HOLIDAY: 1.1,             // 110% night work on holidays
+} as const;
 
-export function calculateWorkDay(workDay: WorkDay, baseSalary: number = DEFAULT_BASE_SALARY): WorkDayCalculation {
-  const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
-  
-  const HOURLY_RATE = baseSalary / MONTHLY_HOURS;
-  
-  let regularPay = regularHours * HOURLY_RATE;
+// Night shift hours split
+const NIGHT_SHIFT = {
+  BEFORE_MIDNIGHT: 3,  // 9pm-00:00
+  AFTER_MIDNIGHT: 5,   // 00:00-5am
+  TOTAL: 8,
+} as const;
+
+/**
+ * Parse work day date string to Date object
+ */
+function parseWorkDayDate(dateStr: string): Date {
+  return parseISO(dateStr);
+}
+
+/**
+ * Check if date is Saturday
+ */
+function isSaturday(date: Date): boolean {
+  return getDay(date) === 6;
+}
+
+/**
+ * Calculate night shift surcharges
+ */
+function calculateNightSurcharges(
+  regularHours: number,
+  hourlyRate: number,
+  isHoliday: boolean,
+  isSat: boolean
+): { nightSurcharge: number; sundayNightSurcharge: number } {
   let nightSurcharge = 0;
   let sundayNightSurcharge = 0;
-  let holidaySurcharge = 0;
-  let extraHoursPay = 0;
 
-  // Check if current day is Saturday
-  const [year, month, day] = date.split('-').map(Number);
-  const workDate = new Date(year, month - 1, day);
-  const isSaturday = workDate.getDay() === 6;
+  if (isHoliday) {
+    // All hours with holiday night surcharge
+    nightSurcharge = regularHours * hourlyRate * SURCHARGES.NIGHT_HOLIDAY;
+  } else if (isSat) {
+    // Split: normal night until midnight, Sunday night after
+    nightSurcharge = NIGHT_SHIFT.BEFORE_MIDNIGHT * hourlyRate * SURCHARGES.NIGHT;
+    sundayNightSurcharge = NIGHT_SHIFT.AFTER_MIDNIGHT * hourlyRate * SURCHARGES.NIGHT_HOLIDAY;
+  } else {
+    // Normal night surcharge
+    nightSurcharge = regularHours * hourlyRate * SURCHARGES.NIGHT;
+  }
 
-  // Calculate night surcharge
+  return { nightSurcharge, sundayNightSurcharge };
+}
+
+/**
+ * Calculate extra hours pay
+ */
+function calculateExtraHours(
+  extraHours: number,
+  hourlyRate: number,
+  shiftType: WorkDay['shiftType'],
+  isHoliday: boolean
+): number {
+  if (extraHours === 0) return 0;
+
+  const isNight = shiftType === 'trasnocho';
+  
+  let multiplier: number;
+  if (isHoliday) {
+    multiplier = isNight ? SURCHARGES.EXTRA_HOLIDAY_NIGHT : SURCHARGES.EXTRA_HOLIDAY_DAY;
+  } else {
+    multiplier = isNight ? SURCHARGES.EXTRA_NIGHT : SURCHARGES.EXTRA_DAY;
+  }
+
+  return extraHours * hourlyRate * (1 + multiplier);
+}
+
+/**
+ * Calculate a single work day
+ */
+export function calculateWorkDay(
+  workDay: WorkDay, 
+  baseSalary: number = DEFAULT_BASE_SALARY
+): WorkDayCalculation {
+  const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
+  const hourlyRate = baseSalary / MONTHLY_HOURS;
+  const workDate = parseWorkDayDate(date);
+  const isSat = isSaturday(workDate);
+
+  // Regular pay
+  const regularPay = regularHours * hourlyRate;
+
+  // Night surcharges
+  let nightSurcharge = 0;
+  let sundayNightSurcharge = 0;
   if (shiftType === 'trasnocho') {
-    // Night shift is 9pm-5am (8 hours total)
-    // 9pm-00:00 = 3 hours (same day)
-    // 00:00-5am = 5 hours (next day)
-    const hoursBeforeMidnight = 3;
-    const hoursAfterMidnight = 5;
-
-    if (isHoliday) {
-      // All hours with holiday night surcharge if current day is holiday
-      nightSurcharge = regularHours * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
-    } else if (isSaturday) {
-      // Split calculation: normal night until midnight (3 hours), Sunday night after midnight (5 hours)
-      nightSurcharge = hoursBeforeMidnight * HOURLY_RATE * NIGHT_SURCHARGE;
-      sundayNightSurcharge = hoursAfterMidnight * HOURLY_RATE * NIGHT_HOLIDAY_SURCHARGE;
-    } else {
-      // Normal night surcharge for all hours
-      nightSurcharge = regularHours * HOURLY_RATE * NIGHT_SURCHARGE;
-    }
+    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, isHoliday, isSat);
+    nightSurcharge = surcharges.nightSurcharge;
+    sundayNightSurcharge = surcharges.sundayNightSurcharge;
   }
 
-  // Calculate holiday surcharge (only for non-night or in addition to night)
-  if (isHoliday && shiftType !== 'trasnocho') {
-    holidaySurcharge = regularHours * HOURLY_RATE * HOLIDAY_SURCHARGE;
-  }
+  // Holiday surcharge (non-night shifts)
+  const holidaySurcharge = (isHoliday && shiftType !== 'trasnocho') 
+    ? regularHours * hourlyRate * SURCHARGES.HOLIDAY 
+    : 0;
 
-  // Calculate extra hours pay
-  if (extraHours > 0) {
-    if (isHoliday) {
-      if (shiftType === 'trasnocho') {
-        extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_HOLIDAY_NIGHT);
-      } else {
-        extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_HOLIDAY_DAY);
-      }
-    } else {
-      if (shiftType === 'trasnocho') {
-        extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_NIGHT);
-      } else {
-        extraHoursPay = extraHours * HOURLY_RATE * (1 + EXTRA_HOURS_DAY);
-      }
-    }
-  }
+  // Extra hours
+  const extraHoursPay = calculateExtraHours(extraHours, hourlyRate, shiftType, isHoliday);
 
   const totalPay = regularPay + nightSurcharge + sundayNightSurcharge + holidaySurcharge + extraHoursPay;
 
@@ -85,7 +133,13 @@ export function calculateWorkDay(workDay: WorkDay, baseSalary: number = DEFAULT_
   };
 }
 
-export function calculateMonthlySummary(workDays: WorkDay[], baseSalary: number = DEFAULT_BASE_SALARY): MonthlySummary {
+/**
+ * Calculate monthly summary
+ */
+export function calculateMonthlySummary(
+  workDays: WorkDay[], 
+  baseSalary: number = DEFAULT_BASE_SALARY
+): MonthlySummary {
   const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary));
 
   return calculations.reduce(
@@ -112,13 +166,23 @@ export function calculateMonthlySummary(workDays: WorkDay[], baseSalary: number 
   );
 }
 
-export function calculateSurchargesOnly(workDays: WorkDay[], baseSalary: number = DEFAULT_BASE_SALARY) {
+/**
+ * Calculate only surcharges (for previous month)
+ */
+export function calculateSurchargesOnly(
+  workDays: WorkDay[], 
+  baseSalary: number = DEFAULT_BASE_SALARY
+) {
   const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary));
   
   return calculations.reduce(
     (summary, calc) => {
-      const surchargesTotal = calc.nightSurcharge + calc.sundayNightSurcharge + 
-                              calc.holidaySurcharge + calc.extraHoursPay;
+      const surchargesTotal = 
+        calc.nightSurcharge + 
+        calc.sundayNightSurcharge + 
+        calc.holidaySurcharge + 
+        calc.extraHoursPay;
+      
       return {
         totalNightSurcharge: summary.totalNightSurcharge + calc.nightSurcharge,
         totalSundayNightSurcharge: summary.totalSundayNightSurcharge + calc.sundayNightSurcharge,
@@ -137,6 +201,19 @@ export function calculateSurchargesOnly(workDays: WorkDay[], baseSalary: number 
   );
 }
 
+/**
+ * Filter work days by month
+ */
+export function filterWorkDaysByMonth(workDays: WorkDay[], date: Date): WorkDay[] {
+  return workDays.filter(wd => {
+    const workDate = parseWorkDayDate(wd.date);
+    return isSameMonth(workDate, date);
+  });
+}
+
+/**
+ * Format currency in Colombian pesos
+ */
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
