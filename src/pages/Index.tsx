@@ -1,293 +1,92 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// src/pages/Index.tsx - VERSIÓN REFACTORIZADA
+import { useState } from 'react';
 import { WorkDay } from '@/types/workday';
 import WorkDayForm from '@/components/WorkDayForm';
 import WorkDayList from '@/components/WorkDayList';
 import MonthlySummaryCard from '@/components/MonthlySummaryCard';
 import UserProfile from '@/components/UserProfile';
-import { calculateMonthlySummary, calculateSurchargesOnly } from '@/lib/salary-calculator';
 import { Button } from '@/components/ui/button';
 import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useWorkDays } from '@/hooks/useWorkDays';
+import { useSalaryCalculations } from '@/hooks/useSalaryCalculations';
+
 const Index = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [workDays, setWorkDays] = useState<WorkDay[]>([]);
-  const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [baseSalary, setBaseSalary] = useState<number>(2416500);
+  const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
 
-  // Check authentication and load user data
-  useEffect(() => {
-    const initUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate('/auth');
-        return;
-      }
+  // Custom hooks - separación de responsabilidades
+  const { 
+    workDays, 
+    baseSalary, 
+    isLoading, 
+    addWorkDay, 
+    updateWorkDay, 
+    deleteWorkDay 
+  } = useWorkDays();
 
-      setUserId(user.id);
-      
-      // Load user profile to get base salary
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('base_salary')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.base_salary) {
-        setBaseSalary(Number(profile.base_salary));
-      }
-      
-      loadWorkDays(user.id);
-    };
+  const {
+    currentMonthWorkDays,
+    currentMonthSurcharges,
+    monthlySummary,
+  } = useSalaryCalculations({ workDays, baseSalary, currentDate });
 
-    initUser();
+  // Format current month/year
+  const currentMonthYear = format(currentDate, 'LLLL yyyy', { locale: es });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate('/auth');
-      } else if (session.user.id !== userId) {
-        setUserId(session.user.id);
-        loadWorkDays(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  // Load work days from Supabase
-  const loadWorkDays = async (uid: string) => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('work_days')
-        .select('*')
-        .eq('user_id', uid)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-
-      if (data) {
-        // Transform database format to WorkDay format
-        const transformedData: WorkDay[] = data.map((item) => ({
-          id: item.id,
-          date: item.date,
-          shiftType: item.shift_type as 'diurno_am' | 'tarde_pm' | 'trasnocho',
-          regularHours: Number(item.regular_hours),
-          extraHours: Number(item.extra_hours),
-          isHoliday: item.is_holiday,
-          notes: item.notes || '',
-          createdAt: item.created_at,
-        }));
-        setWorkDays(transformedData);
-      }
-    } catch (error: any) {
-      console.error('Error loading work days:', error);
-      toast({
-        title: "Error al cargar datos",
-        description: error.message || "No se pudieron cargar los registros",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  const currentMonthYear = useMemo(() => {
-    return currentDate.toLocaleDateString('es-CO', {
-      month: 'long',
-      year: 'numeric'
-    });
-  }, [currentDate]);
-  const filteredWorkDays = useMemo(() => {
-    return workDays.filter(workDay => {
-      const [year, month, day] = workDay.date.split('-').map(Number);
-      const workDayDate = new Date(year, month - 1, day);
-      return workDayDate.getMonth() === currentDate.getMonth() && workDayDate.getFullYear() === currentDate.getFullYear();
-    });
-  }, [workDays, currentDate]);
-
-  // Filter previous month work days for surcharges
-  const previousMonthWorkDays = useMemo(() => {
-    const prevMonth = new Date(currentDate);
-    prevMonth.setMonth(prevMonth.getMonth() - 1);
-    
-    return workDays.filter(workDay => {
-      const [year, month, day] = workDay.date.split('-').map(Number);
-      const workDayDate = new Date(year, month - 1, day);
-      return workDayDate.getMonth() === prevMonth.getMonth() && 
-             workDayDate.getFullYear() === prevMonth.getFullYear();
-    });
-  }, [workDays, currentDate]);
-
-  // Calculate current month regular pay only
-  const currentMonthRegularPay = useMemo(() => {
-    const calculations = filteredWorkDays.map(wd => {
-      const hourlyRate = baseSalary / 220;
-      return wd.regularHours * hourlyRate;
-    });
-    return calculations.reduce((sum, pay) => sum + pay, 0);
-  }, [filteredWorkDays, baseSalary]);
-
-  // Calculate previous month surcharges (to be paid this month)
-  const previousMonthSurcharges = useMemo(() => {
-    return calculateSurchargesOnly(previousMonthWorkDays, baseSalary);
-  }, [previousMonthWorkDays, baseSalary]);
-
-  // Calculate current month surcharges (to be paid next month)
-  const currentMonthSurcharges = useMemo(() => {
-    return calculateSurchargesOnly(filteredWorkDays, baseSalary);
-  }, [filteredWorkDays, baseSalary]);
-
-  // Total to receive this month: current regular + previous surcharges
-  const totalToReceive = useMemo(() => {
-    return currentMonthRegularPay + previousMonthSurcharges.totalSurcharges;
-  }, [currentMonthRegularPay, previousMonthSurcharges]);
-
-  // For the summary card display
-  const monthlySummary = useMemo(() => {
-    const summary = calculateMonthlySummary(filteredWorkDays, baseSalary);
-    return {
-      ...summary,
-      totalPay: totalToReceive,
-      totalNightSurcharge: previousMonthSurcharges.totalNightSurcharge,
-      totalSundayNightSurcharge: previousMonthSurcharges.totalSundayNightSurcharge,
-      totalHolidaySurcharge: previousMonthSurcharges.totalHolidaySurcharge,
-      totalExtraHoursPay: previousMonthSurcharges.totalExtraHoursPay,
-    };
-  }, [filteredWorkDays, baseSalary, totalToReceive, previousMonthSurcharges]);
+  // Handlers
   const handleSubmit = async (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
-    if (!userId) return;
-
     try {
       if (editingWorkDay) {
-        // Update existing work day
-        const { error } = await supabase
-          .from('work_days')
-          .update({
-            date: workDayData.date,
-            shift_type: workDayData.shiftType,
-            regular_hours: workDayData.regularHours,
-            extra_hours: workDayData.extraHours,
-            is_holiday: workDayData.isHoliday,
-            notes: workDayData.notes,
-          })
-          .eq('id', editingWorkDay.id)
-          .eq('user_id', userId);
-
-        if (error) throw error;
-
-        setWorkDays(workDays.map(wd => 
-          wd.id === editingWorkDay.id 
-            ? { ...workDayData, id: wd.id, createdAt: wd.createdAt }
-            : wd
-        ));
+        await updateWorkDay(editingWorkDay.id, workDayData);
         setEditingWorkDay(null);
-        
-        toast({
-          title: "Día actualizado",
-          description: "El registro ha sido actualizado exitosamente."
-        });
       } else {
-        // Insert new work day
-        const { data, error } = await supabase
-          .from('work_days')
-          .insert({
-            user_id: userId,
-            date: workDayData.date,
-            shift_type: workDayData.shiftType,
-            regular_hours: workDayData.regularHours,
-            extra_hours: workDayData.extraHours,
-            is_holiday: workDayData.isHoliday,
-            notes: workDayData.notes,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          const newWorkDay: WorkDay = {
-            id: data.id,
-            date: data.date,
-            shiftType: data.shift_type as 'diurno_am' | 'tarde_pm' | 'trasnocho',
-            regularHours: Number(data.regular_hours),
-            extraHours: Number(data.extra_hours),
-            isHoliday: data.is_holiday,
-            notes: data.notes || '',
-            createdAt: data.created_at,
-          };
-          setWorkDays([...workDays, newWorkDay]);
-        }
-
-        toast({
-          title: "Día registrado",
-          description: "El día laboral ha sido guardado exitosamente."
-        });
+        await addWorkDay(workDayData);
       }
-    } catch (error: any) {
-      console.error('Error saving work day:', error);
-      toast({
-        title: "Error al guardar",
-        description: error.message || "No se pudo guardar el registro",
-        variant: "destructive",
-      });
+    } catch (error) {
+      // Error handling is done in the hook
     }
   };
+
   const handleEdit = (workDay: WorkDay) => {
     setEditingWorkDay(workDay);
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
   const handleDelete = async (id: string) => {
-    if (!userId) return;
-
     try {
-      const { error } = await supabase
-        .from('work_days')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      setWorkDays(workDays.filter(wd => wd.id !== id));
-      toast({
-        title: "Día eliminado",
-        description: "El registro ha sido eliminado.",
-        variant: "destructive"
-      });
-    } catch (error: any) {
-      console.error('Error deleting work day:', error);
-      toast({
-        title: "Error al eliminar",
-        description: error.message || "No se pudo eliminar el registro",
-        variant: "destructive",
-      });
+      await deleteWorkDay(id);
+    } catch (error) {
+      // Error handling is done in the hook
     }
   };
+
   const handleCancelEdit = () => {
     setEditingWorkDay(null);
   };
+
   const changeMonth = (direction: 'prev' | 'next') => {
-    setCurrentDate(prevDate => {
-      const newDate = new Date(prevDate);
-      if (direction === 'prev') {
-        newDate.setMonth(newDate.getMonth() - 1);
-      } else {
-        newDate.setMonth(newDate.getMonth() + 1);
-      }
+    setCurrentDate(prev => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + (direction === 'prev' ? -1 : 1));
       return newDate;
     });
   };
-  return <div className="min-h-screen bg-background">
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <p className="mt-4 text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-4 sm:py-6">
@@ -297,8 +96,12 @@ const Index = () => {
                 <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground">Control de Nómina</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Gestiona tus días laborales y calcula tu salario</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                  Control de Nómina
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                  Gestiona tus días laborales y calcula tu salario
+                </p>
               </div>
             </div>
             <UserProfile />
@@ -311,23 +114,42 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column - Form and List */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-            <WorkDayForm onSubmit={handleSubmit} editingWorkDay={editingWorkDay} onCancelEdit={handleCancelEdit} />
+            <WorkDayForm 
+              onSubmit={handleSubmit} 
+              editingWorkDay={editingWorkDay} 
+              onCancelEdit={handleCancelEdit} 
+            />
             
             <div className="flex items-center justify-between">
-              <h2 className="text-lg sm:text-xl font-semibold">
-                {currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
+              <h2 className="text-lg sm:text-xl font-semibold capitalize">
+                {currentMonthYear}
               </h2>
               <div className="flex gap-1 sm:gap-2">
-                <Button variant="outline" size="icon" onClick={() => changeMonth('prev')} className="h-8 w-8 sm:h-10 sm:w-10">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => changeMonth('prev')}
+                  className="h-8 w-8 sm:h-10 sm:w-10"
+                >
                   <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => changeMonth('next')} className="h-8 w-8 sm:h-10 sm:w-10">
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => changeMonth('next')}
+                  className="h-8 w-8 sm:h-10 sm:w-10"
+                >
                   <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
 
-            <WorkDayList workDays={filteredWorkDays} onEdit={handleEdit} onDelete={handleDelete} baseSalary={baseSalary} />
+            <WorkDayList 
+              workDays={currentMonthWorkDays} 
+              onEdit={handleEdit} 
+              onDelete={handleDelete} 
+              baseSalary={baseSalary} 
+            />
           </div>
 
           {/* Right Column - Summary */}
@@ -335,13 +157,15 @@ const Index = () => {
             <div className="lg:sticky lg:top-6">
               <MonthlySummaryCard 
                 summary={monthlySummary} 
-                currentMonth={currentMonthYear.charAt(0).toUpperCase() + currentMonthYear.slice(1)}
+                currentMonth={currentMonthYear}
                 currentMonthSurcharges={currentMonthSurcharges}
               />
             </div>
           </div>
         </div>
       </main>
-    </div>;
+    </div>
+  );
 };
+
 export default Index;
