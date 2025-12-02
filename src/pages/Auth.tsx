@@ -117,9 +117,9 @@ export default function Auth() {
                     value={baseSalary} 
                     onChange={e => setBaseSalary(e.target.value)} 
                     required={!isLogin} 
-                    placeholder="2416500"
+                    placeholder="1423500"
                     min="0"
-                    step="1000"
+                    step="500"
                   />
                 </div>
               </>
