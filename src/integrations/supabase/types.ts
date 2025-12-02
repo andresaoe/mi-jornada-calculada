@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
+          base_salary: number
           created_at: string
           email: string | null
           full_name: string | null
@@ -24,6 +25,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_salary?: number
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -32,6 +34,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_salary?: number
           created_at?: string
           email?: string | null
           full_name?: string | null

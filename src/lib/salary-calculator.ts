@@ -1,9 +1,8 @@
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
 
-// Base salary
-const BASE_SALARY = 2416500;
+// Base salary (default value)
+const DEFAULT_BASE_SALARY = 2416500;
 const MONTHLY_HOURS = 220; // Standard monthly working hours for salary calculation
-const HOURLY_RATE = BASE_SALARY / MONTHLY_HOURS;
 
 // Colombian labor law surcharges
 const NIGHT_SURCHARGE = 0.35; // 35% for night work (Trasnocho 9pm-5am)
@@ -14,8 +13,10 @@ const EXTRA_HOURS_HOLIDAY_DAY = 1.0; // 100% for daytime extra hours on holidays
 const EXTRA_HOURS_HOLIDAY_NIGHT = 1.5; // 150% for nighttime extra hours on holidays
 const NIGHT_HOLIDAY_SURCHARGE = 1.1; // 110% for night work on holidays (Trasnocho)
 
-export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
+export function calculateWorkDay(workDay: WorkDay, baseSalary: number = DEFAULT_BASE_SALARY): WorkDayCalculation {
   const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
+  
+  const HOURLY_RATE = baseSalary / MONTHLY_HOURS;
   
   let regularPay = regularHours * HOURLY_RATE;
   let nightSurcharge = 0;
@@ -84,8 +85,8 @@ export function calculateWorkDay(workDay: WorkDay): WorkDayCalculation {
   };
 }
 
-export function calculateMonthlySummary(workDays: WorkDay[]): MonthlySummary {
-  const calculations = workDays.map(calculateWorkDay);
+export function calculateMonthlySummary(workDays: WorkDay[], baseSalary: number = DEFAULT_BASE_SALARY): MonthlySummary {
+  const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary));
 
   return calculations.reduce(
     (summary, calc) => ({
