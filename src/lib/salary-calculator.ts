@@ -1,6 +1,6 @@
 // src/lib/salary-calculator.ts
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
-import { parseISO, getDay, isSameMonth, differenceInDays, addDays } from 'date-fns';
+import { parseISO, getDay, isSameMonth, differenceInDays, addDays, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 // Constants
 const DEFAULT_BASE_SALARY = 2416500;
@@ -197,8 +197,12 @@ function calculateSpecialShiftPay(
     }
     case 'arl':
       return regularHours * hourlyRate * SPECIAL_SHIFTS.ARL;
-    case 'vacaciones':
-      return regularHours * hourlyRate * SPECIAL_SHIFTS.VACACIONES;
+    case 'vacaciones': {
+      // Use 6-month average calculation for vacation
+      const vacationDate = parseWorkDayDate(workDay.date);
+      const dailyRate = calculateVacationDailyRateInternal(allWorkDays, baseSalary, vacationDate, hourlyRate);
+      return dailyRate;
+    }
     case 'licencia_remunerada':
       return regularHours * hourlyRate * SPECIAL_SHIFTS.LICENCIA_REMUNERADA;
     case 'licencia_no_remunerada':
@@ -206,6 +210,98 @@ function calculateSpecialShiftPay(
     default:
       return regularHours * hourlyRate;
   }
+}
+
+/**
+ * Internal function to calculate vacation daily rate (avoids circular dependency)
+ */
+function calculateVacationDailyRateInternal(
+  allWorkDays: WorkDay[],
+  baseSalary: number,
+  referenceDate: Date,
+  hourlyRate: number
+): number {
+  // Get the last 6 months (excluding vacation days to avoid circular calculation)
+  const monthlyTotals: number[] = [];
+  
+  for (let i = 1; i <= 6; i++) {
+    const monthDate = subMonths(referenceDate, i);
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    
+    // Filter work days for this month (exclude vacation days)
+    const monthWorkDays = allWorkDays.filter(wd => {
+      if (wd.shiftType === 'vacaciones') return false;
+      const workDate = parseWorkDayDate(wd.date);
+      return isWithinInterval(workDate, { start: monthStart, end: monthEnd });
+    });
+    
+    // Calculate total for this month
+    const monthTotal = monthWorkDays.reduce((total, wd) => {
+      const calc = calculateWorkDaySimple(wd, baseSalary, allWorkDays);
+      return total + calc;
+    }, 0);
+    
+    monthlyTotals.push(monthTotal);
+  }
+  
+  // If no historical data, use base salary
+  const totalEarnings = monthlyTotals.reduce((sum, val) => sum + val, 0);
+  
+  if (totalEarnings === 0) {
+    // Use base salary as fallback
+    return baseSalary / 30;
+  }
+  
+  // Average of 6 months divided by 30 days
+  const averageMonthly = totalEarnings / 6;
+  return averageMonthly / 30;
+}
+
+/**
+ * Simple calculation for vacation average (avoids recursion)
+ */
+function calculateWorkDaySimple(
+  workDay: WorkDay, 
+  baseSalary: number,
+  allWorkDays: WorkDay[]
+): number {
+  const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
+  const hourlyRate = baseSalary / MONTHLY_HOURS;
+  const workDate = parseWorkDayDate(date);
+  const isSat = isSaturday(workDate);
+
+  // Skip vacation for this calculation
+  if (shiftType === 'vacaciones') return 0;
+  
+  // Handle other special shifts
+  if (shiftType === 'incapacidad') {
+    const dayPosition = getIncapacidadDayPosition(workDay, allWorkDays);
+    const percentage = getIncapacidadPercentage(dayPosition, baseSalary);
+    return regularHours * hourlyRate * percentage;
+  }
+  if (shiftType === 'arl') return regularHours * hourlyRate * SPECIAL_SHIFTS.ARL;
+  if (shiftType === 'licencia_remunerada') return regularHours * hourlyRate * SPECIAL_SHIFTS.LICENCIA_REMUNERADA;
+  if (shiftType === 'licencia_no_remunerada') return 0;
+
+  // Regular pay for normal shifts
+  let total = regularHours * hourlyRate;
+
+  // Night surcharges
+  if (shiftType === 'trasnocho') {
+    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, isHoliday, isSat);
+    total += surcharges.nightSurcharge + surcharges.sundayNightSurcharge;
+  }
+
+  // Holiday surcharge
+  if (isHoliday && shiftType !== 'trasnocho') {
+    total += regularHours * hourlyRate * SURCHARGES.HOLIDAY;
+  }
+
+  // Extra hours
+  total += calculateExtraHours(extraHours, hourlyRate, shiftType, isHoliday);
+
+  return total;
 }
 
 /**
@@ -356,4 +452,77 @@ export function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+/**
+ * Calculate vacation daily rate based on last 6 months average
+ * Formula: (Total earnings last 6 months / 6 months) / 30 days
+ */
+export function calculateVacationDailyRate(
+  allWorkDays: WorkDay[],
+  baseSalary: number,
+  referenceDate: Date = new Date()
+): number {
+  // Get the last 6 months
+  const monthlyTotals: number[] = [];
+  
+  for (let i = 1; i <= 6; i++) {
+    const monthDate = subMonths(referenceDate, i);
+    const monthStart = startOfMonth(monthDate);
+    const monthEnd = endOfMonth(monthDate);
+    
+    // Filter work days for this month
+    const monthWorkDays = allWorkDays.filter(wd => {
+      const workDate = parseWorkDayDate(wd.date);
+      return isWithinInterval(workDate, { start: monthStart, end: monthEnd });
+    });
+    
+    // Calculate total for this month
+    const monthTotal = monthWorkDays.reduce((total, wd) => {
+      const calc = calculateWorkDay(wd, baseSalary, allWorkDays);
+      return total + calc.totalPay;
+    }, 0);
+    
+    monthlyTotals.push(monthTotal);
+  }
+  
+  // If no historical data, use base salary
+  const totalEarnings = monthlyTotals.reduce((sum, val) => sum + val, 0);
+  
+  if (totalEarnings === 0) {
+    // Use base salary as fallback
+    return baseSalary / 30;
+  }
+  
+  // Average of 6 months divided by 30 days
+  const averageMonthly = totalEarnings / 6;
+  return averageMonthly / 30;
+}
+
+/**
+ * Calculate vacation pay for a specific day
+ */
+export function calculateVacationPay(
+  workDay: WorkDay,
+  allWorkDays: WorkDay[],
+  baseSalary: number
+): number {
+  const vacationDate = parseWorkDayDate(workDay.date);
+  const dailyRate = calculateVacationDailyRate(allWorkDays, baseSalary, vacationDate);
+  return dailyRate;
+}
+
+/**
+ * Generate date range array
+ */
+export function generateDateRange(startDate: Date, endDate: Date): string[] {
+  const dates: string[] = [];
+  let currentDate = startDate;
+  
+  while (currentDate <= endDate) {
+    dates.push(currentDate.toISOString().split('T')[0]);
+    currentDate = addDays(currentDate, 1);
+  }
+  
+  return dates;
 }

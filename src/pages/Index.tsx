@@ -21,7 +21,8 @@ const Index = () => {
     workDays, 
     baseSalary, 
     isLoading, 
-    addWorkDay, 
+    addWorkDay,
+    addMultipleWorkDays,
     updateWorkDay, 
     deleteWorkDay 
   } = useWorkDays();
@@ -44,6 +45,14 @@ const Index = () => {
       } else {
         await addWorkDay(workDayData);
       }
+    } catch (error) {
+      // Error handling is done in the hook
+    }
+  };
+
+  const handleSubmitMultiple = async (workDaysData: Omit<WorkDay, 'id' | 'createdAt'>[]) => {
+    try {
+      await addMultipleWorkDays(workDaysData);
     } catch (error) {
       // Error handling is done in the hook
     }
@@ -115,7 +124,8 @@ const Index = () => {
           {/* Left Column - Form and List */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <WorkDayForm 
-              onSubmit={handleSubmit} 
+              onSubmit={handleSubmit}
+              onSubmitMultiple={handleSubmitMultiple}
               editingWorkDay={editingWorkDay} 
               onCancelEdit={handleCancelEdit} 
             />
@@ -145,7 +155,8 @@ const Index = () => {
             </div>
 
             <WorkDayList 
-              workDays={currentMonthWorkDays} 
+              workDays={currentMonthWorkDays}
+              allWorkDays={workDays}
               onEdit={handleEdit} 
               onDelete={handleDelete} 
               baseSalary={baseSalary} 

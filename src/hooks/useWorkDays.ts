@@ -11,6 +11,7 @@ interface UseWorkDaysReturn {
   baseSalary: number;
   isLoading: boolean;
   addWorkDay: (workDay: Omit<WorkDay, 'id' | 'createdAt'>) => Promise<void>;
+  addMultipleWorkDays: (workDays: Omit<WorkDay, 'id' | 'createdAt'>[]) => Promise<void>;
   updateWorkDay: (id: string, workDay: Omit<WorkDay, 'id' | 'createdAt'>) => Promise<void>;
   deleteWorkDay: (id: string) => Promise<void>;
   setBaseSalary: (salary: number) => void;
@@ -131,6 +132,43 @@ export function useWorkDays(): UseWorkDaysReturn {
     }
   }, [userId, toast]);
 
+  const addMultipleWorkDays = useCallback(async (workDaysData: Omit<WorkDay, 'id' | 'createdAt'>[]) => {
+    if (!userId || workDaysData.length === 0) return;
+
+    try {
+      const insertData = workDaysData.map(wd => ({
+        user_id: userId,
+        date: wd.date,
+        shift_type: wd.shiftType,
+        regular_hours: wd.regularHours,
+        extra_hours: wd.extraHours,
+        is_holiday: wd.isHoliday,
+        notes: wd.notes,
+      }));
+
+      const { data, error } = await supabase
+        .from('work_days')
+        .insert(insertData)
+        .select();
+
+      if (error) throw error;
+      if (data) {
+        setWorkDays(prev => [...data.map(transformDbToWorkDay), ...prev]);
+        toast({
+          title: "Días registrados",
+          description: `Se han guardado ${data.length} días exitosamente.`
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error al guardar",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [userId, toast]);
+
   const updateWorkDay = useCallback(async (id: string, workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
     if (!userId) return;
 
@@ -202,6 +240,7 @@ export function useWorkDays(): UseWorkDaysReturn {
     baseSalary,
     isLoading,
     addWorkDay,
+    addMultipleWorkDays,
     updateWorkDay,
     deleteWorkDay,
     setBaseSalary,

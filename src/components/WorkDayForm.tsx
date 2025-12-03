@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,42 +6,94 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { WorkDay, ShiftType } from '@/types/workday';
-import { Plus, Edit, AlertCircle } from 'lucide-react';
+import { Plus, Edit, AlertCircle, CalendarIcon, CalendarRange } from 'lucide-react';
+import { format, eachDayOfInterval, differenceInDays } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 interface WorkDayFormProps {
   onSubmit: (workDay: Omit<WorkDay, 'id' | 'createdAt'>) => void;
+  onSubmitMultiple?: (workDays: Omit<WorkDay, 'id' | 'createdAt'>[]) => void;
   editingWorkDay?: WorkDay | null;
   onCancelEdit?: () => void;
 }
 
-export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: WorkDayFormProps) {
+// Shift types that support date range selection
+const RANGE_SHIFT_TYPES: ShiftType[] = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'];
+
+export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay, onCancelEdit }: WorkDayFormProps) {
   const [date, setDate] = useState(editingWorkDay?.date || new Date().toISOString().split('T')[0]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [useRangeMode, setUseRangeMode] = useState(false);
   const [shiftType, setShiftType] = useState<ShiftType>(editingWorkDay?.shiftType || 'diurno_am');
   const [regularHours, setRegularHours] = useState(editingWorkDay?.regularHours.toString() || '8');
   const [extraHours, setExtraHours] = useState(editingWorkDay?.extraHours.toString() || '0');
   const [isHoliday, setIsHoliday] = useState(editingWorkDay?.isHoliday || false);
   const [notes, setNotes] = useState(editingWorkDay?.notes || '');
 
+  // Check if current shift type supports range selection
+  const supportsRange = RANGE_SHIFT_TYPES.includes(shiftType);
+
+  // Reset range mode when shift type changes
+  useEffect(() => {
+    if (!supportsRange) {
+      setUseRangeMode(false);
+      setDateRange(undefined);
+    }
+  }, [shiftType, supportsRange]);
+
+  // Calculate number of days in range
+  const daysInRange = dateRange?.from && dateRange?.to 
+    ? differenceInDays(dateRange.to, dateRange.from) + 1 
+    : 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      date,
-      shiftType,
-      regularHours: parseFloat(regularHours),
-      extraHours: parseFloat(extraHours),
-      isHoliday,
-      notes,
-    });
     
-    if (!editingWorkDay) {
-      // Reset form only if not editing
-      setDate(new Date().toISOString().split('T')[0]);
+    // If using range mode and we have a valid range
+    if (useRangeMode && dateRange?.from && dateRange?.to && onSubmitMultiple) {
+      const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
+      const workDays = days.map(day => ({
+        date: day.toISOString().split('T')[0],
+        shiftType,
+        regularHours: parseFloat(regularHours),
+        extraHours: 0,
+        isHoliday: false,
+        notes,
+      }));
+      onSubmitMultiple(workDays);
+      
+      // Reset form
+      setDateRange(undefined);
+      setUseRangeMode(false);
       setShiftType('diurno_am');
       setRegularHours('8');
       setExtraHours('0');
       setIsHoliday(false);
       setNotes('');
+    } else {
+      // Single day submission
+      onSubmit({
+        date,
+        shiftType,
+        regularHours: parseFloat(regularHours),
+        extraHours: parseFloat(extraHours),
+        isHoliday,
+        notes,
+      });
+      
+      if (!editingWorkDay) {
+        setDate(new Date().toISOString().split('T')[0]);
+        setShiftType('diurno_am');
+        setRegularHours('8');
+        setExtraHours('0');
+        setIsHoliday(false);
+        setNotes('');
+      }
     }
   };
 
@@ -65,17 +117,7 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date">Fecha</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-            </div>
-
+            {/* Shift Type Selection */}
             <div className="space-y-2">
               <Label htmlFor="shiftType">Tipo de Turno</Label>
               <Select value={shiftType} onValueChange={(value) => setShiftType(value as ShiftType)}>
@@ -95,6 +137,104 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
               </Select>
             </div>
 
+            {/* Range mode toggle for supported shift types */}
+            {supportsRange && !editingWorkDay && (
+              <div className="space-y-2">
+                <Label>Modo de Selección</Label>
+                <div className="flex items-center gap-4 h-10">
+                  <Button
+                    type="button"
+                    variant={!useRangeMode ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setUseRangeMode(false)}
+                    className="flex items-center gap-1"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    Un día
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={useRangeMode ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setUseRangeMode(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <CalendarRange className="h-4 w-4" />
+                    Varios días
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Date Selection */}
+            {useRangeMode && supportsRange ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Rango de Fechas</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dateRange && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarRange className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "dd MMM yyyy", { locale: es })} -{" "}
+                            {format(dateRange.to, "dd MMM yyyy", { locale: es })}
+                            <span className="ml-auto text-primary font-medium">
+                              ({daysInRange} días)
+                            </span>
+                          </>
+                        ) : (
+                          format(dateRange.from, "dd MMM yyyy", { locale: es })
+                        )
+                      ) : (
+                        <span>Seleccionar rango de fechas</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      locale={es}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+                {daysInRange > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Se registrarán <span className="font-semibold text-primary">{daysInRange}</span> días de {
+                      shiftType === 'incapacidad' ? 'incapacidad' :
+                      shiftType === 'arl' ? 'ARL' :
+                      shiftType === 'vacaciones' ? 'vacaciones' :
+                      shiftType === 'licencia_remunerada' ? 'licencia remunerada' :
+                      'licencia no remunerada'
+                    }
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="date">Fecha</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="regularHours">Horas Ordinarias</Label>
               <Input
@@ -109,7 +249,7 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
               />
             </div>
 
-            {!['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'].includes(shiftType) && (
+            {!RANGE_SHIFT_TYPES.includes(shiftType) && (
               <div className="space-y-2">
                 <Label htmlFor="extraHours">Horas Extras</Label>
                 <Input
@@ -133,7 +273,14 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
             </div>
           )}
 
-          {!['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'].includes(shiftType) && (
+          {shiftType === 'vacaciones' && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm text-blue-700 dark:text-blue-400">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Las vacaciones se calculan con el promedio de los últimos 6 meses dividido entre 30</span>
+            </div>
+          )}
+
+          {!RANGE_SHIFT_TYPES.includes(shiftType) && (
             <div className="flex items-center space-x-2">
               <Switch
                 id="isHoliday"
@@ -158,8 +305,12 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
           </div>
 
           <div className="flex gap-2">
-            <Button type="submit" className="flex-1">
-              {editingWorkDay ? 'Actualizar' : 'Guardar'}
+            <Button 
+              type="submit" 
+              className="flex-1"
+              disabled={useRangeMode && (!dateRange?.from || !dateRange?.to)}
+            >
+              {editingWorkDay ? 'Actualizar' : useRangeMode ? `Guardar ${daysInRange} días` : 'Guardar'}
             </Button>
             {editingWorkDay && onCancelEdit && (
               <Button type="button" variant="outline" onClick={onCancelEdit}>

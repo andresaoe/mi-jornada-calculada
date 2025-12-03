@@ -19,12 +19,13 @@ import {
 
 interface WorkDayListProps {
   workDays: WorkDay[];
+  allWorkDays?: WorkDay[];
   onEdit: (workDay: WorkDay) => void;
   onDelete: (id: string) => void;
   baseSalary?: number;
 }
 
-export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2416500 }: WorkDayListProps) {
+export default function WorkDayList({ workDays, allWorkDays, onEdit, onDelete, baseSalary = 2416500 }: WorkDayListProps) {
   const { toast } = useToast();
   const sortedWorkDays = [...workDays].sort((a, b) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -60,8 +61,9 @@ export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2
 
   const exportToExcel = async () => {
     try {
+      const allDays = allWorkDays || workDays;
       const data = sortedWorkDays.map((workDay) => {
-        const calculation = calculateWorkDay(workDay, baseSalary, workDays);
+        const calculation = calculateWorkDay(workDay, baseSalary, allDays);
         const [year, month, day] = workDay.date.split('-').map(Number);
         const date = new Date(year, month - 1, day);
         
@@ -165,7 +167,8 @@ export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2
               </TableHeader>
               <TableBody>
                 {sortedWorkDays.map((workDay) => {
-                  const calculation = calculateWorkDay(workDay, baseSalary, workDays);
+                  const allDays = allWorkDays || workDays;
+                  const calculation = calculateWorkDay(workDay, baseSalary, allDays);
                   return (
                     <TableRow key={workDay.id}>
                       <TableCell className="font-medium">
