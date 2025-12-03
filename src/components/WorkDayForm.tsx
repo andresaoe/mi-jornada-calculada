@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { WorkDay, ShiftType } from '@/types/workday';
-import { Plus, Edit } from 'lucide-react';
+import { Plus, Edit, AlertCircle } from 'lucide-react';
 
 interface WorkDayFormProps {
   onSubmit: (workDay: Omit<WorkDay, 'id' | 'createdAt'>) => void;
@@ -86,6 +86,11 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
                   <SelectItem value="diurno_am">Diurno AM (5am-1pm)</SelectItem>
                   <SelectItem value="tarde_pm">Tarde PM (1pm-9pm)</SelectItem>
                   <SelectItem value="trasnocho">Trasnocho (9pm-5am)</SelectItem>
+                  <SelectItem value="incapacidad">Incapacidad</SelectItem>
+                  <SelectItem value="arl">ARL (Accidente Laboral)</SelectItem>
+                  <SelectItem value="vacaciones">Vacaciones</SelectItem>
+                  <SelectItem value="licencia_remunerada">Licencia Remunerada</SelectItem>
+                  <SelectItem value="licencia_no_remunerada">Licencia No Remunerada</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -104,31 +109,42 @@ export default function WorkDayForm({ onSubmit, editingWorkDay, onCancelEdit }: 
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="extraHours">Horas Extras</Label>
-              <Input
-                id="extraHours"
-                type="number"
-                min="0"
-                max="12"
-                step="0.5"
-                value={extraHours}
-                onChange={(e) => setExtraHours(e.target.value)}
-                required
-              />
-            </div>
+            {!['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'].includes(shiftType) && (
+              <div className="space-y-2">
+                <Label htmlFor="extraHours">Horas Extras</Label>
+                <Input
+                  id="extraHours"
+                  type="number"
+                  min="0"
+                  max="12"
+                  step="0.5"
+                  value={extraHours}
+                  onChange={(e) => setExtraHours(e.target.value)}
+                  required
+                />
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="isHoliday"
-              checked={isHoliday}
-              onCheckedChange={setIsHoliday}
-            />
-            <Label htmlFor="isHoliday" className="cursor-pointer">
-              Día Festivo o Dominical
-            </Label>
-          </div>
+          {shiftType === 'incapacidad' && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md text-sm text-amber-700 dark:text-amber-400">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>El porcentaje varía según días consecutivos: 100% (días 1-2), 66.67% (días 3-90), 50% (días 91+)</span>
+            </div>
+          )}
+
+          {!['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'].includes(shiftType) && (
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isHoliday"
+                checked={isHoliday}
+                onCheckedChange={setIsHoliday}
+              />
+              <Label htmlFor="isHoliday" className="cursor-pointer">
+                Día Festivo o Dominical
+              </Label>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Notas (opcional)</Label>
