@@ -35,6 +35,11 @@ export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2
       diurno_am: 'default',
       tarde_pm: 'secondary',
       trasnocho: 'outline',
+      incapacidad: 'destructive',
+      arl: 'destructive',
+      vacaciones: 'default',
+      licencia_remunerada: 'secondary',
+      licencia_no_remunerada: 'outline',
     };
     return variants[shiftType as keyof typeof variants] || 'default';
   };
@@ -44,6 +49,11 @@ export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2
       diurno_am: 'Diurno AM',
       tarde_pm: 'Tarde PM',
       trasnocho: 'Trasnocho',
+      incapacidad: 'Incapacidad',
+      arl: 'ARL',
+      vacaciones: 'Vacaciones',
+      licencia_remunerada: 'Lic. Remunerada',
+      licencia_no_remunerada: 'Lic. No Remunerada',
     };
     return labels[shiftType as keyof typeof labels] || shiftType;
   };
@@ -51,7 +61,7 @@ export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2
   const exportToExcel = async () => {
     try {
       const data = sortedWorkDays.map((workDay) => {
-        const calculation = calculateWorkDay(workDay, baseSalary);
+        const calculation = calculateWorkDay(workDay, baseSalary, workDays);
         const [year, month, day] = workDay.date.split('-').map(Number);
         const date = new Date(year, month - 1, day);
         
@@ -155,7 +165,7 @@ export default function WorkDayList({ workDays, onEdit, onDelete, baseSalary = 2
               </TableHeader>
               <TableBody>
                 {sortedWorkDays.map((workDay) => {
-                  const calculation = calculateWorkDay(workDay, baseSalary);
+                  const calculation = calculateWorkDay(workDay, baseSalary, workDays);
                   return (
                     <TableRow key={workDay.id}>
                       <TableCell className="font-medium">

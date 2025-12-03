@@ -1,4 +1,12 @@
-export type ShiftType = 'diurno_am' | 'tarde_pm' | 'trasnocho';
+export type ShiftType = 
+  | 'diurno_am' 
+  | 'tarde_pm' 
+  | 'trasnocho' 
+  | 'incapacidad' 
+  | 'arl' 
+  | 'vacaciones' 
+  | 'licencia_remunerada' 
+  | 'licencia_no_remunerada';
 
 export interface WorkDay {
   id: string;

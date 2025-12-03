@@ -1,9 +1,10 @@
 // src/lib/salary-calculator.ts
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
-import { parseISO, getDay, isSameMonth } from 'date-fns';
+import { parseISO, getDay, isSameMonth, differenceInDays, addDays } from 'date-fns';
 
 // Constants
 const DEFAULT_BASE_SALARY = 2416500;
+const MINIMUM_WAGE = 1423500;
 const MONTHLY_HOURS = 220;
 
 // Colombian labor law surcharges
@@ -17,12 +18,26 @@ const SURCHARGES = {
   NIGHT_HOLIDAY: 1.1,             // 110% night work on holidays
 } as const;
 
+// Special shift payment percentages
+const SPECIAL_SHIFTS = {
+  INCAPACIDAD_DAYS_1_2: 1.0,      // 100% first 2 days
+  INCAPACIDAD_DAYS_3_90: 0.6667,  // 66.67% days 3-90
+  INCAPACIDAD_DAYS_91_180: 0.5,   // 50% days 91-180
+  ARL: 1.0,                       // 100% work-related injury
+  VACACIONES: 1.0,                // 100% vacation
+  LICENCIA_REMUNERADA: 1.0,       // 100% paid leave
+  LICENCIA_NO_REMUNERADA: 0,      // 0% unpaid leave
+} as const;
+
 // Night shift hours split
 const NIGHT_SHIFT = {
   BEFORE_MIDNIGHT: 3,  // 9pm-00:00
   AFTER_MIDNIGHT: 5,   // 00:00-5am
   TOTAL: 8,
 } as const;
+
+// Shift types that don't receive surcharges
+const NO_SURCHARGE_SHIFTS = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'] as const;
 
 /**
  * Parse work day date string to Date object
@@ -89,18 +104,138 @@ function calculateExtraHours(
 }
 
 /**
+ * Check if shift type is a special (no surcharge) shift
+ */
+function isSpecialShift(shiftType: WorkDay['shiftType']): boolean {
+  return NO_SURCHARGE_SHIFTS.includes(shiftType as typeof NO_SURCHARGE_SHIFTS[number]);
+}
+
+/**
+ * Calculate consecutive incapacidad days position
+ * Returns which day number in the streak this workday represents
+ */
+function getIncapacidadDayPosition(
+  workDay: WorkDay,
+  allWorkDays: WorkDay[]
+): number {
+  const workDate = parseWorkDayDate(workDay.date);
+  
+  // Get all incapacidad days sorted by date
+  const incapacidadDays = allWorkDays
+    .filter(wd => wd.shiftType === 'incapacidad')
+    .sort((a, b) => parseWorkDayDate(a.date).getTime() - parseWorkDayDate(b.date).getTime());
+  
+  // Find the streak that contains this day
+  let streakStart = 0;
+  let position = 1;
+  
+  for (let i = 0; i < incapacidadDays.length; i++) {
+    const currentDate = parseWorkDayDate(incapacidadDays[i].date);
+    
+    if (i === 0) {
+      streakStart = 0;
+      position = 1;
+    } else {
+      const prevDate = parseWorkDayDate(incapacidadDays[i - 1].date);
+      const daysDiff = differenceInDays(currentDate, prevDate);
+      
+      if (daysDiff > 1) {
+        // New streak starts
+        streakStart = i;
+        position = 1;
+      } else {
+        position = i - streakStart + 1;
+      }
+    }
+    
+    if (incapacidadDays[i].id === workDay.id) {
+      return position;
+    }
+  }
+  
+  return 1; // Default to first day if not found
+}
+
+/**
+ * Calculate incapacidad payment percentage based on consecutive days
+ */
+function getIncapacidadPercentage(
+  dayPosition: number,
+  baseSalary: number
+): number {
+  const isMinimumWage = baseSalary <= MINIMUM_WAGE;
+  
+  if (dayPosition <= 2) {
+    return SPECIAL_SHIFTS.INCAPACIDAD_DAYS_1_2;
+  } else if (dayPosition <= 90) {
+    // 66.67% or 100% if minimum wage
+    return isMinimumWage ? 1.0 : SPECIAL_SHIFTS.INCAPACIDAD_DAYS_3_90;
+  } else if (dayPosition <= 180) {
+    return SPECIAL_SHIFTS.INCAPACIDAD_DAYS_91_180;
+  }
+  
+  // Beyond 180 days, typically handled differently
+  return SPECIAL_SHIFTS.INCAPACIDAD_DAYS_91_180;
+}
+
+/**
+ * Calculate special shift pay (no surcharges)
+ */
+function calculateSpecialShiftPay(
+  workDay: WorkDay,
+  hourlyRate: number,
+  baseSalary: number,
+  allWorkDays: WorkDay[] = []
+): number {
+  const { shiftType, regularHours } = workDay;
+  
+  switch (shiftType) {
+    case 'incapacidad': {
+      const dayPosition = getIncapacidadDayPosition(workDay, allWorkDays);
+      const percentage = getIncapacidadPercentage(dayPosition, baseSalary);
+      return regularHours * hourlyRate * percentage;
+    }
+    case 'arl':
+      return regularHours * hourlyRate * SPECIAL_SHIFTS.ARL;
+    case 'vacaciones':
+      return regularHours * hourlyRate * SPECIAL_SHIFTS.VACACIONES;
+    case 'licencia_remunerada':
+      return regularHours * hourlyRate * SPECIAL_SHIFTS.LICENCIA_REMUNERADA;
+    case 'licencia_no_remunerada':
+      return 0;
+    default:
+      return regularHours * hourlyRate;
+  }
+}
+
+/**
  * Calculate a single work day
  */
 export function calculateWorkDay(
   workDay: WorkDay, 
-  baseSalary: number = DEFAULT_BASE_SALARY
+  baseSalary: number = DEFAULT_BASE_SALARY,
+  allWorkDays: WorkDay[] = []
 ): WorkDayCalculation {
   const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
   const hourlyRate = baseSalary / MONTHLY_HOURS;
   const workDate = parseWorkDayDate(date);
   const isSat = isSaturday(workDate);
 
-  // Regular pay
+  // Handle special shifts (no surcharges)
+  if (isSpecialShift(shiftType)) {
+    const regularPay = calculateSpecialShiftPay(workDay, hourlyRate, baseSalary, allWorkDays);
+    return {
+      ...workDay,
+      regularPay,
+      nightSurcharge: 0,
+      sundayNightSurcharge: 0,
+      holidaySurcharge: 0,
+      extraHoursPay: 0,
+      totalPay: regularPay,
+    };
+  }
+
+  // Regular pay for normal shifts
   const regularPay = regularHours * hourlyRate;
 
   // Night surcharges
@@ -140,7 +275,7 @@ export function calculateMonthlySummary(
   workDays: WorkDay[], 
   baseSalary: number = DEFAULT_BASE_SALARY
 ): MonthlySummary {
-  const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary));
+  const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary, workDays));
 
   return calculations.reduce(
     (summary, calc) => ({
@@ -173,7 +308,7 @@ export function calculateSurchargesOnly(
   workDays: WorkDay[], 
   baseSalary: number = DEFAULT_BASE_SALARY
 ) {
-  const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary));
+  const calculations = workDays.map(wd => calculateWorkDay(wd, baseSalary, workDays));
   
   return calculations.reduce(
     (summary, calc) => {

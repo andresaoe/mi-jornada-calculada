@@ -41,7 +41,7 @@ export function useSalaryCalculations({
     );
   }, [currentMonthWorkDays, baseSalary]);
 
-  // Calculate surcharges
+  // Calculate surcharges (pass all workDays for incapacidad consecutive day calculation)
   const previousMonthSurcharges = useMemo(
     () => calculateSurchargesOnly(previousMonthWorkDays, baseSalary),
     [previousMonthWorkDays, baseSalary]
