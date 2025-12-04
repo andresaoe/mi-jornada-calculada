@@ -1,6 +1,6 @@
 // src/lib/salary-calculator.ts
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
-import { parseISO, getDay, isSameMonth, differenceInDays, addDays, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { parseISO, getDay, isSameMonth, differenceInDays, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 // Constants
 const DEFAULT_BASE_SALARY = 2416500;
@@ -198,10 +198,8 @@ function calculateSpecialShiftPay(
     case 'arl':
       return regularHours * hourlyRate * SPECIAL_SHIFTS.ARL;
     case 'vacaciones': {
-      // Use 6-month average calculation for vacation
       const vacationDate = parseWorkDayDate(workDay.date);
-      const dailyRate = calculateVacationDailyRateInternal(allWorkDays, baseSalary, vacationDate, hourlyRate);
-      return dailyRate;
+      return calculateVacationDailyRate(allWorkDays, baseSalary, vacationDate);
     }
     case 'licencia_remunerada':
       return regularHours * hourlyRate * SPECIAL_SHIFTS.LICENCIA_REMUNERADA;
@@ -213,15 +211,14 @@ function calculateSpecialShiftPay(
 }
 
 /**
- * Internal function to calculate vacation daily rate (avoids circular dependency)
+ * Calculate vacation daily rate based on last 6 months average
+ * Formula: (Total earnings last 6 months / 6 months) / 30 days
  */
-function calculateVacationDailyRateInternal(
+function calculateVacationDailyRate(
   allWorkDays: WorkDay[],
   baseSalary: number,
-  referenceDate: Date,
-  hourlyRate: number
+  referenceDate: Date
 ): number {
-  // Get the last 6 months (excluding vacation days to avoid circular calculation)
   const monthlyTotals: number[] = [];
   
   for (let i = 1; i <= 6; i++) {
@@ -238,24 +235,18 @@ function calculateVacationDailyRateInternal(
     
     // Calculate total for this month
     const monthTotal = monthWorkDays.reduce((total, wd) => {
-      const calc = calculateWorkDaySimple(wd, baseSalary, allWorkDays);
-      return total + calc;
+      return total + calculateWorkDaySimple(wd, baseSalary, allWorkDays);
     }, 0);
     
     monthlyTotals.push(monthTotal);
   }
   
-  // If no historical data, use base salary
   const totalEarnings = monthlyTotals.reduce((sum, val) => sum + val, 0);
   
-  if (totalEarnings === 0) {
-    // Use base salary as fallback
-    return baseSalary / 30;
-  }
+  // Use base salary as fallback if no historical data
+  if (totalEarnings === 0) return baseSalary / 30;
   
-  // Average of 6 months divided by 30 days
-  const averageMonthly = totalEarnings / 6;
-  return averageMonthly / 30;
+  return (totalEarnings / 6) / 30;
 }
 
 /**
@@ -452,77 +443,4 @@ export function formatCurrency(amount: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-/**
- * Calculate vacation daily rate based on last 6 months average
- * Formula: (Total earnings last 6 months / 6 months) / 30 days
- */
-export function calculateVacationDailyRate(
-  allWorkDays: WorkDay[],
-  baseSalary: number,
-  referenceDate: Date = new Date()
-): number {
-  // Get the last 6 months
-  const monthlyTotals: number[] = [];
-  
-  for (let i = 1; i <= 6; i++) {
-    const monthDate = subMonths(referenceDate, i);
-    const monthStart = startOfMonth(monthDate);
-    const monthEnd = endOfMonth(monthDate);
-    
-    // Filter work days for this month
-    const monthWorkDays = allWorkDays.filter(wd => {
-      const workDate = parseWorkDayDate(wd.date);
-      return isWithinInterval(workDate, { start: monthStart, end: monthEnd });
-    });
-    
-    // Calculate total for this month
-    const monthTotal = monthWorkDays.reduce((total, wd) => {
-      const calc = calculateWorkDay(wd, baseSalary, allWorkDays);
-      return total + calc.totalPay;
-    }, 0);
-    
-    monthlyTotals.push(monthTotal);
-  }
-  
-  // If no historical data, use base salary
-  const totalEarnings = monthlyTotals.reduce((sum, val) => sum + val, 0);
-  
-  if (totalEarnings === 0) {
-    // Use base salary as fallback
-    return baseSalary / 30;
-  }
-  
-  // Average of 6 months divided by 30 days
-  const averageMonthly = totalEarnings / 6;
-  return averageMonthly / 30;
-}
-
-/**
- * Calculate vacation pay for a specific day
- */
-export function calculateVacationPay(
-  workDay: WorkDay,
-  allWorkDays: WorkDay[],
-  baseSalary: number
-): number {
-  const vacationDate = parseWorkDayDate(workDay.date);
-  const dailyRate = calculateVacationDailyRate(allWorkDays, baseSalary, vacationDate);
-  return dailyRate;
-}
-
-/**
- * Generate date range array
- */
-export function generateDateRange(startDate: Date, endDate: Date): string[] {
-  const dates: string[] = [];
-  let currentDate = startDate;
-  
-  while (currentDate <= endDate) {
-    dates.push(currentDate.toISOString().split('T')[0]);
-    currentDate = addDays(currentDate, 1);
-  }
-  
-  return dates;
 }
