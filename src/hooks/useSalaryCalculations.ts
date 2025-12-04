@@ -6,18 +6,22 @@ import {
   calculateSurchargesOnly,
   filterWorkDaysByMonth 
 } from '@/lib/salary-calculator';
+import { calculateFullPayroll, PayrollCalculation } from '@/lib/payroll-calculator';
+import { PayrollConfig } from '@/types/payroll';
 import { addMonths } from 'date-fns';
 
 interface UseSalaryCalculationsProps {
   workDays: WorkDay[];
   baseSalary: number;
   currentDate: Date;
+  payrollConfig?: PayrollConfig;
 }
 
 export function useSalaryCalculations({ 
   workDays, 
   baseSalary, 
-  currentDate 
+  currentDate,
+  payrollConfig 
 }: UseSalaryCalculationsProps) {
   
   // Filter current month work days
@@ -52,7 +56,7 @@ export function useSalaryCalculations({
     [currentMonthWorkDays, baseSalary]
   );
 
-  // Total to receive this month
+  // Total to receive this month (regular pay + previous month surcharges)
   const totalToReceive = useMemo(
     () => currentMonthRegularPay + previousMonthSurcharges.totalSurcharges,
     [currentMonthRegularPay, previousMonthSurcharges]
@@ -71,6 +75,20 @@ export function useSalaryCalculations({
     };
   }, [currentMonthWorkDays, baseSalary, totalToReceive, previousMonthSurcharges]);
 
+  // Full payroll calculation with deductions and provisions
+  const payrollSummary = useMemo((): PayrollCalculation => {
+    return calculateFullPayroll(
+      baseSalary,
+      currentMonthRegularPay,
+      previousMonthSurcharges.totalSurcharges,
+      {
+        transportAllowanceEnabled: payrollConfig?.transportAllowanceEnabled ?? true,
+        customTransportAllowance: payrollConfig?.transportAllowanceValue,
+        uvtValue: payrollConfig?.uvtValue,
+      }
+    );
+  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig]);
+
   return {
     currentMonthWorkDays,
     previousMonthWorkDays,
@@ -79,5 +97,6 @@ export function useSalaryCalculations({
     currentMonthSurcharges,
     totalToReceive,
     monthlySummary,
+    payrollSummary,
   };
 }

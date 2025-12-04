@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      payroll_calculations: {
+        Row: {
+          base_salary: number
+          cesantias_interest: number
+          cesantias_provision: number
+          created_at: string
+          health_deduction: number
+          id: string
+          month_year: string
+          net_pay: number
+          pension_deduction: number
+          prima_provision: number
+          regular_pay: number
+          surcharges: number
+          total_deductions: number
+          total_earnings: number
+          transport_allowance: number
+          updated_at: string
+          user_id: string
+          withholding_tax: number
+        }
+        Insert: {
+          base_salary: number
+          cesantias_interest?: number
+          cesantias_provision?: number
+          created_at?: string
+          health_deduction?: number
+          id?: string
+          month_year: string
+          net_pay?: number
+          pension_deduction?: number
+          prima_provision?: number
+          regular_pay?: number
+          surcharges?: number
+          total_deductions?: number
+          total_earnings?: number
+          transport_allowance?: number
+          updated_at?: string
+          user_id: string
+          withholding_tax?: number
+        }
+        Update: {
+          base_salary?: number
+          cesantias_interest?: number
+          cesantias_provision?: number
+          created_at?: string
+          health_deduction?: number
+          id?: string
+          month_year?: string
+          net_pay?: number
+          pension_deduction?: number
+          prima_provision?: number
+          regular_pay?: number
+          surcharges?: number
+          total_deductions?: number
+          total_earnings?: number
+          transport_allowance?: number
+          updated_at?: string
+          user_id?: string
+          withholding_tax?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           base_salary: number
@@ -22,7 +85,10 @@ export type Database = {
           full_name: string | null
           google_drive_folder_id: string | null
           id: string
+          transport_allowance_enabled: boolean
+          transport_allowance_value: number
           updated_at: string
+          uvt_value: number
         }
         Insert: {
           base_salary?: number
@@ -31,7 +97,10 @@ export type Database = {
           full_name?: string | null
           google_drive_folder_id?: string | null
           id: string
+          transport_allowance_enabled?: boolean
+          transport_allowance_value?: number
           updated_at?: string
+          uvt_value?: number
         }
         Update: {
           base_salary?: number
@@ -40,7 +109,10 @@ export type Database = {
           full_name?: string | null
           google_drive_folder_id?: string | null
           id?: string
+          transport_allowance_enabled?: boolean
+          transport_allowance_value?: number
           updated_at?: string
+          uvt_value?: number
         }
         Relationships: []
       }

@@ -4,13 +4,16 @@ import { WorkDay } from '@/types/workday';
 import WorkDayForm from '@/components/WorkDayForm';
 import WorkDayList from '@/components/WorkDayList';
 import MonthlySummaryCard from '@/components/MonthlySummaryCard';
+import PayrollSummaryCard from '@/components/PayrollSummaryCard';
 import UserProfile from '@/components/UserProfile';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useWorkDays } from '@/hooks/useWorkDays';
 import { useSalaryCalculations } from '@/hooks/useSalaryCalculations';
+import { usePayrollConfig } from '@/hooks/usePayrollConfig';
 
 const Index = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -19,6 +22,7 @@ const Index = () => {
   // Custom hooks - separación de responsabilidades
   const { 
     workDays, 
+    userId,
     baseSalary, 
     isLoading, 
     addWorkDay,
@@ -27,11 +31,14 @@ const Index = () => {
     deleteWorkDay 
   } = useWorkDays();
 
+  const { config: payrollConfig } = usePayrollConfig(userId);
+
   const {
     currentMonthWorkDays,
     currentMonthSurcharges,
     monthlySummary,
-  } = useSalaryCalculations({ workDays, baseSalary, currentDate });
+    payrollSummary,
+  } = useSalaryCalculations({ workDays, baseSalary, currentDate, payrollConfig });
 
   // Format current month/year
   const currentMonthYear = format(currentDate, 'LLLL yyyy', { locale: es });
@@ -166,11 +173,25 @@ const Index = () => {
           {/* Right Column - Summary */}
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-6">
-              <MonthlySummaryCard 
-                summary={monthlySummary} 
-                currentMonth={currentMonthYear}
-                currentMonthSurcharges={currentMonthSurcharges}
-              />
+              <Tabs defaultValue="payroll" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="payroll">Nómina</TabsTrigger>
+                  <TabsTrigger value="surcharges">Recargos</TabsTrigger>
+                </TabsList>
+                <TabsContent value="payroll" className="mt-4">
+                  <PayrollSummaryCard 
+                    payroll={payrollSummary}
+                    currentMonth={currentMonthYear}
+                  />
+                </TabsContent>
+                <TabsContent value="surcharges" className="mt-4">
+                  <MonthlySummaryCard 
+                    summary={monthlySummary} 
+                    currentMonth={currentMonthYear}
+                    currentMonthSurcharges={currentMonthSurcharges}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </div>
