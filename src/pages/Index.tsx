@@ -1,5 +1,6 @@
 // src/pages/Index.tsx - VERSIÓN REFACTORIZADA
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { WorkDay } from '@/types/workday';
 import WorkDayForm from '@/components/WorkDayForm';
 import WorkDayList from '@/components/WorkDayList';
@@ -8,14 +9,14 @@ import PayrollSummaryCard from '@/components/PayrollSummaryCard';
 import UserProfile from '@/components/UserProfile';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Briefcase, ChevronLeft, ChevronRight, FileBarChart } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useWorkDays } from '@/hooks/useWorkDays';
 import { useSalaryCalculations } from '@/hooks/useSalaryCalculations';
 import { usePayrollConfig } from '@/hooks/usePayrollConfig';
-
 const Index = () => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
 
@@ -120,7 +121,26 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            <UserProfile />
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => navigate('/reportes')}
+                className="sm:hidden h-9 w-9"
+              >
+                <FileBarChart className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/reportes')}
+                className="hidden sm:flex items-center gap-2"
+              >
+                <FileBarChart className="h-4 w-4" />
+                Reportes
+              </Button>
+              <UserProfile />
+            </div>
           </div>
         </div>
       </header>
