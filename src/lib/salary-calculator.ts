@@ -39,6 +39,37 @@ const NIGHT_SHIFT = {
 // Shift types that don't receive surcharges
 const NO_SURCHARGE_SHIFTS = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'] as const;
 
+// Shift types that DON'T qualify for transport allowance
+const NO_TRANSPORT_ALLOWANCE_SHIFTS = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'] as const;
+
+/**
+ * Check if a shift type qualifies for transport allowance
+ * Transport allowance is ONLY paid for days effectively worked
+ */
+export function qualifiesForTransportAllowance(shiftType: string): boolean {
+  return !NO_TRANSPORT_ALLOWANCE_SHIFTS.includes(shiftType as typeof NO_TRANSPORT_ALLOWANCE_SHIFTS[number]);
+}
+
+/**
+ * Count days that qualify for transport allowance in a given set of work days
+ */
+export function countTransportAllowanceDays(workDays: { shiftType: string }[]): number {
+  return workDays.filter(wd => qualifiesForTransportAllowance(wd.shiftType)).length;
+}
+
+/**
+ * Calculate proportional transport allowance based on worked days
+ * Formula: (Transport Allowance / 30) * Days Worked
+ */
+export function calculateProportionalTransportAllowance(
+  workDays: { shiftType: string }[],
+  monthlyTransportAllowance: number
+): number {
+  const eligibleDays = countTransportAllowanceDays(workDays);
+  const dailyRate = monthlyTransportAllowance / 30;
+  return Math.round(dailyRate * eligibleDays);
+}
+
 /**
  * Parse work day date string to Date object
  */
