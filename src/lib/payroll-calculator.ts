@@ -63,17 +63,34 @@ export function calculateTransportAllowance(
 }
 
 /**
- * Calcula la deducción de salud (4%)
+ * Calcula el IBC (Ingreso Base de Cotización)
+ * Es el total devengado menos auxilio de transporte
+ * El IBC es la base para calcular aportes a salud y pensión
  */
-export function calculateHealthDeduction(baseSalary: number): number {
-  return baseSalary * PAYROLL_CONSTANTS.HEALTH_PERCENTAGE;
+export function calculateIBC(
+  regularPay: number,
+  surcharges: number,
+  transportAllowance: number
+): number {
+  // El IBC es todo lo devengado EXCEPTO auxilio de transporte
+  const totalDevengado = regularPay + surcharges + transportAllowance;
+  return totalDevengado - transportAllowance; // = regularPay + surcharges
+}
+
+/**
+ * Calcula la deducción de salud (4%)
+ * Se calcula sobre el IBC (no sobre salario base)
+ */
+export function calculateHealthDeduction(ibc: number): number {
+  return Math.round(ibc * PAYROLL_CONSTANTS.HEALTH_PERCENTAGE);
 }
 
 /**
  * Calcula la deducción de pensión (4%)
+ * Se calcula sobre el IBC (no sobre salario base)
  */
-export function calculatePensionDeduction(baseSalary: number): number {
-  return baseSalary * PAYROLL_CONSTANTS.PENSION_PERCENTAGE;
+export function calculatePensionDeduction(ibc: number): number {
+  return Math.round(ibc * PAYROLL_CONSTANTS.PENSION_PERCENTAGE);
 }
 
 /**
@@ -162,10 +179,14 @@ export function calculateFullPayroll(
   );
   const totalEarnings = regularPay + surcharges + transportAllowance;
 
-  // Deducciones (sobre salario base, no sobre recargos)
-  const healthDeduction = calculateHealthDeduction(baseSalary);
-  const pensionDeduction = calculatePensionDeduction(baseSalary);
-  const withholdingTax = calculateWithholdingTax(regularPay + surcharges, uvtValue);
+  // Calcular IBC (Ingreso Base de Cotización)
+  // IBC = Total Devengado - Auxilio de Transporte
+  const ibc = calculateIBC(regularPay, surcharges, transportAllowance);
+
+  // Deducciones (sobre el IBC, no sobre salario base)
+  const healthDeduction = calculateHealthDeduction(ibc);
+  const pensionDeduction = calculatePensionDeduction(ibc);
+  const withholdingTax = calculateWithholdingTax(ibc, uvtValue);
   const totalDeductions = healthDeduction + pensionDeduction + withholdingTax;
 
   // Provisiones (informativo)
