@@ -14,6 +14,7 @@ import { format, eachDayOfInterval, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
+import { isHolidayOrSunday, isSunday, getHolidayName } from '@/lib/colombian-holidays';
 
 interface WorkDayFormProps {
   onSubmit: (workDay: Omit<WorkDay, 'id' | 'createdAt'>) => void;
@@ -26,14 +27,23 @@ interface WorkDayFormProps {
 const RANGE_SHIFT_TYPES: ShiftType[] = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'];
 
 export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay, onCancelEdit }: WorkDayFormProps) {
-  const [date, setDate] = useState(editingWorkDay?.date || new Date().toISOString().split('T')[0]);
+  const initialDate = editingWorkDay?.date || new Date().toISOString().split('T')[0];
+  const [date, setDate] = useState(initialDate);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [useRangeMode, setUseRangeMode] = useState(false);
   const [shiftType, setShiftType] = useState<ShiftType>(editingWorkDay?.shiftType || 'diurno_am');
   const [regularHours, setRegularHours] = useState(editingWorkDay?.regularHours.toString() || '8');
   const [extraHours, setExtraHours] = useState(editingWorkDay?.extraHours.toString() || '0');
-  const [isHoliday, setIsHoliday] = useState(editingWorkDay?.isHoliday || false);
+  const [isHoliday, setIsHoliday] = useState(editingWorkDay?.isHoliday ?? isHolidayOrSunday(initialDate));
   const [notes, setNotes] = useState(editingWorkDay?.notes || '');
+
+  // Auto-update isHoliday when date changes (for non-range, non-special shifts)
+  useEffect(() => {
+    if (!editingWorkDay && !RANGE_SHIFT_TYPES.includes(shiftType)) {
+      const autoHoliday = isHolidayOrSunday(date);
+      setIsHoliday(autoHoliday);
+    }
+  }, [date, shiftType, editingWorkDay]);
 
   // Check if current shift type supports range selection
   const supportsRange = RANGE_SHIFT_TYPES.includes(shiftType);
@@ -57,14 +67,17 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
     // If using range mode and we have a valid range
     if (useRangeMode && dateRange?.from && dateRange?.to && onSubmitMultiple) {
       const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
-      const workDays = days.map(day => ({
-        date: day.toISOString().split('T')[0],
-        shiftType,
-        regularHours: parseFloat(regularHours),
-        extraHours: 0,
-        isHoliday: false,
-        notes,
-      }));
+      const workDays = days.map(day => {
+        const dayStr = day.toISOString().split('T')[0];
+        return {
+          date: dayStr,
+          shiftType,
+          regularHours: parseFloat(regularHours),
+          extraHours: 0,
+          isHoliday: isHolidayOrSunday(dayStr), // Auto-detect holidays/Sundays
+          notes,
+        };
+      });
       onSubmitMultiple(workDays);
       
       // Reset form
