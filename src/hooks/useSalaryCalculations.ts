@@ -4,7 +4,8 @@ import { WorkDay } from '@/types/workday';
 import { 
   calculateMonthlySummary, 
   calculateSurchargesOnly,
-  filterWorkDaysByMonth 
+  filterWorkDaysByMonth,
+  countTransportAllowanceDays 
 } from '@/lib/salary-calculator';
 import { calculateFullPayroll, PayrollCalculation } from '@/lib/payroll-calculator';
 import { PayrollConfig } from '@/types/payroll';
@@ -75,6 +76,12 @@ export function useSalaryCalculations({
     };
   }, [currentMonthWorkDays, baseSalary, totalToReceive, previousMonthSurcharges]);
 
+  // Count days that qualify for transport allowance
+  const eligibleTransportDays = useMemo(
+    () => countTransportAllowanceDays(currentMonthWorkDays),
+    [currentMonthWorkDays]
+  );
+
   // Full payroll calculation with deductions and provisions
   const payrollSummary = useMemo((): PayrollCalculation => {
     return calculateFullPayroll(
@@ -85,9 +92,10 @@ export function useSalaryCalculations({
         transportAllowanceEnabled: payrollConfig?.transportAllowanceEnabled ?? true,
         customTransportAllowance: payrollConfig?.transportAllowanceValue,
         uvtValue: payrollConfig?.uvtValue,
+        eligibleTransportDays, // Días efectivamente trabajados
       }
     );
-  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig]);
+  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig, eligibleTransportDays]);
 
   return {
     currentMonthWorkDays,

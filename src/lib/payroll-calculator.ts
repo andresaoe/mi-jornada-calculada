@@ -49,17 +49,29 @@ export interface PayrollCalculation {
 }
 
 /**
- * Calcula el auxilio de transporte
+ * Calcula el auxilio de transporte proporcional
  * Solo aplica para salarios hasta 2 SMLV
+ * Se paga SOLO por los días efectivamente trabajados
+ * NO aplica para: vacaciones, incapacidad, licencias, ARL
+ * 
+ * @param baseSalary - Salario base del empleado
+ * @param enabled - Si el auxilio está habilitado
+ * @param customValue - Valor personalizado del auxilio mensual
+ * @param eligibleDays - Días que califican para auxilio (días efectivamente trabajados)
  */
 export function calculateTransportAllowance(
   baseSalary: number,
   enabled: boolean = true,
-  customValue?: number
+  customValue?: number,
+  eligibleDays: number = 30
 ): number {
   if (!enabled) return 0;
   if (baseSalary > PAYROLL_CONSTANTS.MAX_SALARY_FOR_TRANSPORT) return 0;
-  return customValue ?? PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE;
+  
+  const monthlyValue = customValue ?? PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE;
+  const dailyRate = monthlyValue / 30;
+  
+  return Math.round(dailyRate * eligibleDays);
 }
 
 /**
@@ -163,19 +175,22 @@ export function calculateFullPayroll(
     transportAllowanceEnabled?: boolean;
     customTransportAllowance?: number;
     uvtValue?: number;
+    eligibleTransportDays?: number; // Días que califican para auxilio de transporte
   } = {}
 ): PayrollCalculation {
   const {
     transportAllowanceEnabled = true,
     customTransportAllowance,
     uvtValue = PAYROLL_CONSTANTS.UVT_VALUE,
+    eligibleTransportDays = 30, // Default a mes completo
   } = options;
 
-  // Ingresos
+  // Ingresos - Auxilio de transporte proporcional a días trabajados
   const transportAllowance = calculateTransportAllowance(
     baseSalary,
     transportAllowanceEnabled,
-    customTransportAllowance
+    customTransportAllowance,
+    eligibleTransportDays
   );
   const totalEarnings = regularPay + surcharges + transportAllowance;
 
