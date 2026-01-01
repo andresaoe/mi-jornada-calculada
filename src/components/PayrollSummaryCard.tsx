@@ -10,7 +10,6 @@ import {
   Heart, 
   Shield, 
   FileText,
-  Bus,
   Gift,
   PiggyBank,
   Percent
@@ -59,15 +58,6 @@ export default function PayrollSummaryCard({ payroll, currentMonth }: PayrollSum
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Recargos (Mes Anterior)</span>
               <span className="font-semibold text-blue-600">+{formatCurrency(payroll.surcharges)}</span>
-            </div>
-          )}
-          {payroll.transportAllowance > 0 && (
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-1">
-                <Bus className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Auxilio de Transporte</span>
-              </div>
-              <span className="font-semibold text-green-600">+{formatCurrency(payroll.transportAllowance)}</span>
             </div>
           )}
           <Separator />

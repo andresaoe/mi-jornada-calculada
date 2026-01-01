@@ -77,7 +77,6 @@ export function generatePayStubPDF(data: PayStubData): void {
   const earnings = [
     ['Pago Ordinario', formatCurrency(payroll.regularPay)],
     ['Recargos (Mes Anterior)', formatCurrency(payroll.surcharges)],
-    ['Auxilio de Transporte', formatCurrency(payroll.transportAllowance)],
   ];
   
   earnings.forEach(([label, value]) => {
