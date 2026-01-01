@@ -1,8 +1,6 @@
 // src/types/payroll.ts
 
 export interface PayrollConfig {
-  transportAllowanceEnabled: boolean;
-  transportAllowanceValue: number;
   uvtValue: number;
 }
 
@@ -11,7 +9,6 @@ export interface PayrollSummary {
   baseSalary: number;
   regularPay: number;
   surcharges: number;
-  transportAllowance: number;
   totalEarnings: number;
   
   // Deducciones
@@ -36,7 +33,6 @@ export interface MonthlyPayroll {
   baseSalary: number;
   regularPay: number;
   surcharges: number;
-  transportAllowance: number;
   healthDeduction: number;
   pensionDeduction: number;
   withholdingTax: number;

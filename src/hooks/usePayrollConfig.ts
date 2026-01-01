@@ -5,8 +5,6 @@ import { PayrollConfig } from '@/types/payroll';
 import { PAYROLL_CONSTANTS } from '@/lib/payroll-calculator';
 
 const DEFAULT_CONFIG: PayrollConfig = {
-  transportAllowanceEnabled: true,
-  transportAllowanceValue: PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE,
   uvtValue: PAYROLL_CONSTANTS.UVT_VALUE,
 };
 
@@ -24,7 +22,7 @@ export function usePayrollConfig(userId: string | null) {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('transport_allowance_enabled, transport_allowance_value, uvt_value')
+          .select('uvt_value')
           .eq('id', userId)
           .maybeSingle();
 
@@ -32,8 +30,6 @@ export function usePayrollConfig(userId: string | null) {
 
         if (data) {
           setConfig({
-            transportAllowanceEnabled: data.transport_allowance_enabled ?? true,
-            transportAllowanceValue: data.transport_allowance_value ?? PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE,
             uvtValue: data.uvt_value ?? PAYROLL_CONSTANTS.UVT_VALUE,
           });
         }
@@ -54,8 +50,6 @@ export function usePayrollConfig(userId: string | null) {
       const { error } = await supabase
         .from('profiles')
         .update({
-          transport_allowance_enabled: newConfig.transportAllowanceEnabled,
-          transport_allowance_value: newConfig.transportAllowanceValue,
           uvt_value: newConfig.uvtValue,
         })
         .eq('id', userId);
