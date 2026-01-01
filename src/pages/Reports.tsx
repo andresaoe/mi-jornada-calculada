@@ -93,11 +93,7 @@ const Reports = () => {
         baseSalary,
         regularPay,
         surcharges.totalSurcharges,
-        {
-          transportAllowanceEnabled: payrollConfig?.transportAllowanceEnabled ?? true,
-          customTransportAllowance: payrollConfig?.transportAllowanceValue,
-          uvtValue: payrollConfig?.uvtValue,
-        }
+        { uvtValue: payrollConfig?.uvtValue }
       );
       
       data.push({

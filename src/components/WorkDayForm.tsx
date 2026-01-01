@@ -5,16 +5,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { WorkDay, ShiftType } from '@/types/workday';
-import { Plus, Edit, AlertCircle, CalendarIcon, CalendarRange } from 'lucide-react';
+import { Plus, Edit, AlertCircle, CalendarIcon, CalendarRange, Sun, PartyPopper, Info } from 'lucide-react';
 import { format, eachDayOfInterval, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
-import { isHolidayOrSunday, isSunday, getHolidayName } from '@/lib/colombian-holidays';
+import { isHolidayOrSunday, isSunday, getHolidayName, isColombianHoliday } from '@/lib/colombian-holidays';
+import { Badge } from '@/components/ui/badge';
 
 interface WorkDayFormProps {
   onSubmit: (workDay: Omit<WorkDay, 'id' | 'createdAt'>) => void;
@@ -34,16 +34,12 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
   const [shiftType, setShiftType] = useState<ShiftType>(editingWorkDay?.shiftType || 'diurno_am');
   const [regularHours, setRegularHours] = useState(editingWorkDay?.regularHours.toString() || '8');
   const [extraHours, setExtraHours] = useState(editingWorkDay?.extraHours.toString() || '0');
-  const [isHoliday, setIsHoliday] = useState(editingWorkDay?.isHoliday ?? isHolidayOrSunday(initialDate));
   const [notes, setNotes] = useState(editingWorkDay?.notes || '');
 
-  // Auto-update isHoliday when date changes (for non-range, non-special shifts)
-  useEffect(() => {
-    if (!editingWorkDay && !RANGE_SHIFT_TYPES.includes(shiftType)) {
-      const autoHoliday = isHolidayOrSunday(date);
-      setIsHoliday(autoHoliday);
-    }
-  }, [date, shiftType, editingWorkDay]);
+  // Auto-detect if current date is holiday/sunday
+  const isCurrentDateHoliday = isHolidayOrSunday(date);
+  const currentDateIsSunday = isSunday(date);
+  const holidayName = getHolidayName(date);
 
   // Check if current shift type supports range selection
   const supportsRange = RANGE_SHIFT_TYPES.includes(shiftType);
@@ -74,7 +70,7 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
           shiftType,
           regularHours: parseFloat(regularHours),
           extraHours: 0,
-          isHoliday: isHolidayOrSunday(dayStr), // Auto-detect holidays/Sundays
+          isHoliday: isHolidayOrSunday(dayStr), // Auto-detect from Colombian calendar
           notes,
         };
       });
@@ -86,16 +82,15 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
       setShiftType('diurno_am');
       setRegularHours('8');
       setExtraHours('0');
-      setIsHoliday(false);
       setNotes('');
     } else {
-      // Single day submission
+      // Single day submission - auto-detect holiday status
       onSubmit({
         date,
         shiftType,
         regularHours: parseFloat(regularHours),
         extraHours: parseFloat(extraHours),
-        isHoliday,
+        isHoliday: isHolidayOrSunday(date), // Auto-detect from Colombian calendar
         notes,
       });
       
@@ -104,7 +99,6 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
         setShiftType('diurno_am');
         setRegularHours('8');
         setExtraHours('0');
-        setIsHoliday(false);
         setNotes('');
       }
     }
@@ -279,6 +273,36 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
             )}
           </div>
 
+          {/* Auto-detected holiday/sunday info */}
+          {!useRangeMode && !RANGE_SHIFT_TYPES.includes(shiftType) && isCurrentDateHoliday && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md">
+              {currentDateIsSunday ? (
+                <Sun className="h-5 w-5 text-amber-600 flex-shrink-0" />
+              ) : (
+                <PartyPopper className="h-5 w-5 text-amber-600 flex-shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  {currentDateIsSunday ? 'Domingo' : 'Festivo'} - Recargo automático
+                </p>
+                {holidayName && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">{holidayName}</p>
+                )}
+              </div>
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                Auto-detectado
+              </Badge>
+            </div>
+          )}
+
+          {/* Info about auto-detection */}
+          {!useRangeMode && !RANGE_SHIFT_TYPES.includes(shiftType) && !isCurrentDateHoliday && (
+            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md text-sm text-blue-700 dark:text-blue-400">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>Los domingos y festivos colombianos se detectan automáticamente</span>
+            </div>
+          )}
+
           {shiftType === 'incapacidad' && (
             <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-md text-sm text-amber-700 dark:text-amber-400">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -293,16 +317,10 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
             </div>
           )}
 
-          {!RANGE_SHIFT_TYPES.includes(shiftType) && (
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isHoliday"
-                checked={isHoliday}
-                onCheckedChange={setIsHoliday}
-              />
-              <Label htmlFor="isHoliday" className="cursor-pointer">
-                Día Festivo o Dominical
-              </Label>
+          {shiftType === 'tarde_pm' && (
+            <div className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-md text-sm text-purple-700 dark:text-purple-400">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>Desde el 25 de diciembre de 2025, las horas de 7pm a 9pm tienen recargo nocturno (Ley 2466)</span>
             </div>
           )}
 
