@@ -1,74 +1,24 @@
 // src/lib/salary-calculator.ts
+// Cálculos de salario y recargos según ley laboral colombiana
+// Actualizado con Ley 2466 de 2025
+
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
-import { parseISO, getDay, isSameMonth, differenceInDays, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { parseISO, isSameMonth, differenceInDays, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import {
+  MONTHLY_HOURS,
+  MINIMUM_WAGE_2025,
+  SURCHARGE_RATES,
+  SPECIAL_SHIFT_RATES,
+  NO_SURCHARGE_SHIFTS,
+  isHolidayOrSunday,
+  isSaturday,
+  getSundayHolidaySurchargeRate,
+  getShiftConfiguration,
+  ShiftType,
+} from './colombian-labor-law';
 
-// Constants
+// Default base salary
 const DEFAULT_BASE_SALARY = 2416500;
-const MINIMUM_WAGE = 1423500;
-const MONTHLY_HOURS = 220;
-
-// Colombian labor law surcharges
-const SURCHARGES = {
-  NIGHT: 0.35,                    // 35% night work (9pm-5am)
-  HOLIDAY: 0.75,                  // 75% holidays
-  EXTRA_DAY: 0.25,                // 25% daytime extra hours
-  EXTRA_NIGHT: 0.75,              // 75% nighttime extra hours
-  EXTRA_HOLIDAY_DAY: 1.0,         // 100% daytime extra on holidays
-  EXTRA_HOLIDAY_NIGHT: 1.5,       // 150% nighttime extra on holidays
-  NIGHT_HOLIDAY: 1.1,             // 110% night work on holidays
-} as const;
-
-// Special shift payment percentages
-const SPECIAL_SHIFTS = {
-  INCAPACIDAD_DAYS_1_2: 1.0,      // 100% first 2 days
-  INCAPACIDAD_DAYS_3_90: 0.6667,  // 66.67% days 3-90
-  INCAPACIDAD_DAYS_91_180: 0.5,   // 50% days 91-180
-  ARL: 1.0,                       // 100% work-related injury
-  VACACIONES: 1.0,                // 100% vacation
-  LICENCIA_REMUNERADA: 1.0,       // 100% paid leave
-  LICENCIA_NO_REMUNERADA: 0,      // 0% unpaid leave
-} as const;
-
-// Night shift hours split
-const NIGHT_SHIFT = {
-  BEFORE_MIDNIGHT: 3,  // 9pm-00:00
-  AFTER_MIDNIGHT: 5,   // 00:00-5am
-  TOTAL: 8,
-} as const;
-
-// Shift types that don't receive surcharges
-const NO_SURCHARGE_SHIFTS = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'] as const;
-
-// Shift types that DON'T qualify for transport allowance
-const NO_TRANSPORT_ALLOWANCE_SHIFTS = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'] as const;
-
-/**
- * Check if a shift type qualifies for transport allowance
- * Transport allowance is ONLY paid for days effectively worked
- */
-export function qualifiesForTransportAllowance(shiftType: string): boolean {
-  return !NO_TRANSPORT_ALLOWANCE_SHIFTS.includes(shiftType as typeof NO_TRANSPORT_ALLOWANCE_SHIFTS[number]);
-}
-
-/**
- * Count days that qualify for transport allowance in a given set of work days
- */
-export function countTransportAllowanceDays(workDays: { shiftType: string }[]): number {
-  return workDays.filter(wd => qualifiesForTransportAllowance(wd.shiftType)).length;
-}
-
-/**
- * Calculate proportional transport allowance based on worked days
- * Formula: (Transport Allowance / 30) * Days Worked
- */
-export function calculateProportionalTransportAllowance(
-  workDays: { shiftType: string }[],
-  monthlyTransportAllowance: number
-): number {
-  const eligibleDays = countTransportAllowanceDays(workDays);
-  const dailyRate = monthlyTransportAllowance / 30;
-  return Math.round(dailyRate * eligibleDays);
-}
 
 /**
  * Parse work day date string to Date object
@@ -78,34 +28,52 @@ function parseWorkDayDate(dateStr: string): Date {
 }
 
 /**
- * Check if date is Saturday
- */
-function isSaturday(date: Date): boolean {
-  return getDay(date) === 6;
-}
-
-/**
  * Calculate night shift surcharges
+ * Considera el calendario colombiano automáticamente
  */
 function calculateNightSurcharges(
   regularHours: number,
   hourlyRate: number,
-  isHoliday: boolean,
-  isSat: boolean
+  dateStr: string,
+  shiftType: WorkDay['shiftType']
 ): { nightSurcharge: number; sundayNightSurcharge: number } {
+  const date = parseWorkDayDate(dateStr);
+  const isHoliday = isHolidayOrSunday(dateStr);
+  const isSat = isSaturday(dateStr);
+  const shiftConfig = getShiftConfiguration(shiftType as ShiftType, date);
+  const holidayRate = getSundayHolidaySurchargeRate(date);
+  
   let nightSurcharge = 0;
   let sundayNightSurcharge = 0;
 
+  if (shiftType !== 'trasnocho') {
+    // Para turnos diurnos, calcular horas nocturnas si aplica (ley nueva 7pm)
+    const nightHours = shiftConfig.nightHoursBeforeMidnight + shiftConfig.nightHoursAfterMidnight;
+    if (nightHours > 0) {
+      if (isHoliday) {
+        nightSurcharge = nightHours * hourlyRate * (SURCHARGE_RATES.NIGHT + holidayRate);
+      } else {
+        nightSurcharge = nightHours * hourlyRate * SURCHARGE_RATES.NIGHT;
+      }
+    }
+    return { nightSurcharge, sundayNightSurcharge };
+  }
+
+  // Turno trasnocho
   if (isHoliday) {
-    // All hours with holiday night surcharge
-    nightSurcharge = regularHours * hourlyRate * SURCHARGES.NIGHT_HOLIDAY;
+    // Todo el turno con recargo nocturno + dominical/festivo
+    nightSurcharge = regularHours * hourlyRate * (SURCHARGE_RATES.NIGHT + holidayRate);
   } else if (isSat) {
-    // Split: normal night until midnight, Sunday night after
-    nightSurcharge = NIGHT_SHIFT.BEFORE_MIDNIGHT * hourlyRate * SURCHARGES.NIGHT;
-    sundayNightSurcharge = NIGHT_SHIFT.AFTER_MIDNIGHT * hourlyRate * SURCHARGES.NIGHT_HOLIDAY;
+    // Sábado: horas antes de medianoche normal, después de medianoche dominical
+    const hoursBeforeMidnight = shiftConfig.nightHoursBeforeMidnight;
+    const hoursAfterMidnight = shiftConfig.nightHoursAfterMidnight;
+    const sundayRate = getSundayHolidaySurchargeRate(date);
+    
+    nightSurcharge = hoursBeforeMidnight * hourlyRate * SURCHARGE_RATES.NIGHT;
+    sundayNightSurcharge = hoursAfterMidnight * hourlyRate * (SURCHARGE_RATES.NIGHT + sundayRate);
   } else {
-    // Normal night surcharge
-    nightSurcharge = regularHours * hourlyRate * SURCHARGES.NIGHT;
+    // Día normal: solo recargo nocturno
+    nightSurcharge = regularHours * hourlyRate * SURCHARGE_RATES.NIGHT;
   }
 
   return { nightSurcharge, sundayNightSurcharge };
@@ -113,22 +81,30 @@ function calculateNightSurcharges(
 
 /**
  * Calculate extra hours pay
+ * Calcula automáticamente considerando calendario colombiano
  */
 function calculateExtraHours(
   extraHours: number,
   hourlyRate: number,
   shiftType: WorkDay['shiftType'],
-  isHoliday: boolean
+  dateStr: string
 ): number {
   if (extraHours === 0) return 0;
 
+  const date = parseWorkDayDate(dateStr);
+  const isHoliday = isHolidayOrSunday(dateStr);
   const isNight = shiftType === 'trasnocho';
+  const holidayRate = getSundayHolidaySurchargeRate(date);
   
   let multiplier: number;
   if (isHoliday) {
-    multiplier = isNight ? SURCHARGES.EXTRA_HOLIDAY_NIGHT : SURCHARGES.EXTRA_HOLIDAY_DAY;
+    // Extra diurna dominical: 25% + dominical = 25% + 80% = 105%
+    // Extra nocturna dominical: 75% + dominical = 75% + 80% = 155%
+    multiplier = isNight 
+      ? SURCHARGE_RATES.EXTRA_NIGHT + holidayRate
+      : SURCHARGE_RATES.EXTRA_DAY + holidayRate;
   } else {
-    multiplier = isNight ? SURCHARGES.EXTRA_NIGHT : SURCHARGES.EXTRA_DAY;
+    multiplier = isNight ? SURCHARGE_RATES.EXTRA_NIGHT : SURCHARGE_RATES.EXTRA_DAY;
   }
 
   return extraHours * hourlyRate * (1 + multiplier);
@@ -138,12 +114,11 @@ function calculateExtraHours(
  * Check if shift type is a special (no surcharge) shift
  */
 function isSpecialShift(shiftType: WorkDay['shiftType']): boolean {
-  return NO_SURCHARGE_SHIFTS.includes(shiftType as typeof NO_SURCHARGE_SHIFTS[number]);
+  return NO_SURCHARGE_SHIFTS.includes(shiftType as ShiftType);
 }
 
 /**
  * Calculate consecutive incapacidad days position
- * Returns which day number in the streak this workday represents
  */
 function getIncapacidadDayPosition(
   workDay: WorkDay,
@@ -151,12 +126,10 @@ function getIncapacidadDayPosition(
 ): number {
   const workDate = parseWorkDayDate(workDay.date);
   
-  // Get all incapacidad days sorted by date
   const incapacidadDays = allWorkDays
     .filter(wd => wd.shiftType === 'incapacidad')
     .sort((a, b) => parseWorkDayDate(a.date).getTime() - parseWorkDayDate(b.date).getTime());
   
-  // Find the streak that contains this day
   let streakStart = 0;
   let position = 1;
   
@@ -171,7 +144,6 @@ function getIncapacidadDayPosition(
       const daysDiff = differenceInDays(currentDate, prevDate);
       
       if (daysDiff > 1) {
-        // New streak starts
         streakStart = i;
         position = 1;
       } else {
@@ -184,29 +156,24 @@ function getIncapacidadDayPosition(
     }
   }
   
-  return 1; // Default to first day if not found
+  return 1;
 }
 
 /**
  * Calculate incapacidad payment percentage based on consecutive days
  */
-function getIncapacidadPercentage(
-  dayPosition: number,
-  baseSalary: number
-): number {
-  const isMinimumWage = baseSalary <= MINIMUM_WAGE;
+function getIncapacidadPercentage(dayPosition: number, baseSalary: number): number {
+  const isMinimumWage = baseSalary <= MINIMUM_WAGE_2025;
   
   if (dayPosition <= 2) {
-    return SPECIAL_SHIFTS.INCAPACIDAD_DAYS_1_2;
+    return SPECIAL_SHIFT_RATES.INCAPACIDAD_DAYS_1_2;
   } else if (dayPosition <= 90) {
-    // 66.67% or 100% if minimum wage
-    return isMinimumWage ? 1.0 : SPECIAL_SHIFTS.INCAPACIDAD_DAYS_3_90;
+    return isMinimumWage ? 1.0 : SPECIAL_SHIFT_RATES.INCAPACIDAD_DAYS_3_90;
   } else if (dayPosition <= 180) {
-    return SPECIAL_SHIFTS.INCAPACIDAD_DAYS_91_180;
+    return SPECIAL_SHIFT_RATES.INCAPACIDAD_DAYS_91_180;
   }
   
-  // Beyond 180 days, typically handled differently
-  return SPECIAL_SHIFTS.INCAPACIDAD_DAYS_91_180;
+  return SPECIAL_SHIFT_RATES.INCAPACIDAD_DAYS_91_180;
 }
 
 /**
@@ -227,13 +194,13 @@ function calculateSpecialShiftPay(
       return regularHours * hourlyRate * percentage;
     }
     case 'arl':
-      return regularHours * hourlyRate * SPECIAL_SHIFTS.ARL;
+      return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.ARL;
     case 'vacaciones': {
       const vacationDate = parseWorkDayDate(workDay.date);
       return calculateVacationDailyRate(allWorkDays, baseSalary, vacationDate);
     }
     case 'licencia_remunerada':
-      return regularHours * hourlyRate * SPECIAL_SHIFTS.LICENCIA_REMUNERADA;
+      return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.LICENCIA_REMUNERADA;
     case 'licencia_no_remunerada':
       return 0;
     default:
@@ -243,7 +210,6 @@ function calculateSpecialShiftPay(
 
 /**
  * Calculate vacation daily rate based on last 6 months average
- * Formula: (Total earnings last 6 months / 6 months) / 30 days
  */
 function calculateVacationDailyRate(
   allWorkDays: WorkDay[],
@@ -257,14 +223,12 @@ function calculateVacationDailyRate(
     const monthStart = startOfMonth(monthDate);
     const monthEnd = endOfMonth(monthDate);
     
-    // Filter work days for this month (exclude vacation days)
     const monthWorkDays = allWorkDays.filter(wd => {
       if (wd.shiftType === 'vacaciones') return false;
       const workDate = parseWorkDayDate(wd.date);
       return isWithinInterval(workDate, { start: monthStart, end: monthEnd });
     });
     
-    // Calculate total for this month
     const monthTotal = monthWorkDays.reduce((total, wd) => {
       return total + calculateWorkDaySimple(wd, baseSalary, allWorkDays);
     }, 0);
@@ -274,7 +238,6 @@ function calculateVacationDailyRate(
   
   const totalEarnings = monthlyTotals.reduce((sum, val) => sum + val, 0);
   
-  // Use base salary as fallback if no historical data
   if (totalEarnings === 0) return baseSalary / 30;
   
   return (totalEarnings / 6) / 30;
@@ -288,62 +251,59 @@ function calculateWorkDaySimple(
   baseSalary: number,
   allWorkDays: WorkDay[]
 ): number {
-  const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
+  const { shiftType, regularHours, extraHours, date } = workDay;
   const hourlyRate = baseSalary / MONTHLY_HOURS;
+  const isHoliday = isHolidayOrSunday(date);
   const workDate = parseWorkDayDate(date);
-  const isSat = isSaturday(workDate);
 
-  // Skip vacation for this calculation
   if (shiftType === 'vacaciones') return 0;
   
-  // Handle other special shifts
   if (shiftType === 'incapacidad') {
     const dayPosition = getIncapacidadDayPosition(workDay, allWorkDays);
     const percentage = getIncapacidadPercentage(dayPosition, baseSalary);
     return regularHours * hourlyRate * percentage;
   }
-  if (shiftType === 'arl') return regularHours * hourlyRate * SPECIAL_SHIFTS.ARL;
-  if (shiftType === 'licencia_remunerada') return regularHours * hourlyRate * SPECIAL_SHIFTS.LICENCIA_REMUNERADA;
+  if (shiftType === 'arl') return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.ARL;
+  if (shiftType === 'licencia_remunerada') return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.LICENCIA_REMUNERADA;
   if (shiftType === 'licencia_no_remunerada') return 0;
 
-  // Regular pay for normal shifts
   let total = regularHours * hourlyRate;
 
-  // Night surcharges
   if (shiftType === 'trasnocho') {
-    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, isHoliday, isSat);
+    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, date, shiftType);
     total += surcharges.nightSurcharge + surcharges.sundayNightSurcharge;
   }
 
-  // Holiday surcharge
   if (isHoliday && shiftType !== 'trasnocho') {
-    total += regularHours * hourlyRate * SURCHARGES.HOLIDAY;
+    const holidayRate = getSundayHolidaySurchargeRate(workDate);
+    total += regularHours * hourlyRate * holidayRate;
   }
 
-  // Extra hours
-  total += calculateExtraHours(extraHours, hourlyRate, shiftType, isHoliday);
+  total += calculateExtraHours(extraHours, hourlyRate, shiftType, date);
 
   return total;
 }
 
 /**
  * Calculate a single work day
+ * Detecta automáticamente dominicales y festivos del calendario colombiano
  */
 export function calculateWorkDay(
   workDay: WorkDay, 
   baseSalary: number = DEFAULT_BASE_SALARY,
   allWorkDays: WorkDay[] = []
 ): WorkDayCalculation {
-  const { shiftType, regularHours, extraHours, isHoliday, date } = workDay;
+  const { shiftType, regularHours, extraHours, date } = workDay;
   const hourlyRate = baseSalary / MONTHLY_HOURS;
+  const isHoliday = isHolidayOrSunday(date);
   const workDate = parseWorkDayDate(date);
-  const isSat = isSaturday(workDate);
 
   // Handle special shifts (no surcharges)
   if (isSpecialShift(shiftType)) {
     const regularPay = calculateSpecialShiftPay(workDay, hourlyRate, baseSalary, allWorkDays);
     return {
       ...workDay,
+      isHoliday, // Auto-detect from calendar
       regularPay,
       nightSurcharge: 0,
       sundayNightSurcharge: 0,
@@ -359,24 +319,32 @@ export function calculateWorkDay(
   // Night surcharges
   let nightSurcharge = 0;
   let sundayNightSurcharge = 0;
+  
   if (shiftType === 'trasnocho') {
-    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, isHoliday, isSat);
+    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, date, shiftType);
     nightSurcharge = surcharges.nightSurcharge;
     sundayNightSurcharge = surcharges.sundayNightSurcharge;
+  } else {
+    // Check for night hours in tarde_pm shift with new law
+    const surcharges = calculateNightSurcharges(regularHours, hourlyRate, date, shiftType);
+    nightSurcharge = surcharges.nightSurcharge;
   }
 
-  // Holiday surcharge (non-night shifts)
-  const holidaySurcharge = (isHoliday && shiftType !== 'trasnocho') 
-    ? regularHours * hourlyRate * SURCHARGES.HOLIDAY 
-    : 0;
+  // Holiday/Sunday surcharge (for non-night shifts)
+  let holidaySurcharge = 0;
+  if (isHoliday && shiftType !== 'trasnocho') {
+    const holidayRate = getSundayHolidaySurchargeRate(workDate);
+    holidaySurcharge = regularHours * hourlyRate * holidayRate;
+  }
 
   // Extra hours
-  const extraHoursPay = calculateExtraHours(extraHours, hourlyRate, shiftType, isHoliday);
+  const extraHoursPay = calculateExtraHours(extraHours, hourlyRate, shiftType, date);
 
   const totalPay = regularPay + nightSurcharge + sundayNightSurcharge + holidaySurcharge + extraHoursPay;
 
   return {
     ...workDay,
+    isHoliday, // Auto-detected
     regularPay,
     nightSurcharge,
     sundayNightSurcharge,

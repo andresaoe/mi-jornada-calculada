@@ -1,10 +1,17 @@
 // src/lib/payroll-calculator.ts
 // Cálculos de prestaciones sociales y deducciones según ley colombiana
+// Actualizado con Ley 2466 de 2025
 
-// Constantes 2025
+import { MONTHLY_HOURS } from './colombian-labor-law';
+
+// ==================== CONSTANTES 2025 ====================
+
 export const PAYROLL_CONSTANTS = {
   MINIMUM_WAGE: 1423500,
-  TRANSPORT_ALLOWANCE: 200000,
+  // NOTA: El auxilio de transporte legal vigente es de $200.000 COP
+  // Esta funcionalidad ha sido removida de la lógica de la aplicación
+  // El cálculo del auxilio de transporte debe hacerse externamente
+  TRANSPORT_ALLOWANCE_REFERENCE: 200000,
   MAX_SALARY_FOR_TRANSPORT: 2847000, // 2 x SMLV
   HEALTH_PERCENTAGE: 0.04,           // 4%
   PENSION_PERCENTAGE: 0.04,          // 4%
@@ -30,7 +37,6 @@ export interface PayrollCalculation {
   baseSalary: number;
   regularPay: number;
   surcharges: number;
-  transportAllowance: number;
   totalEarnings: number;
   
   // Deducciones
@@ -49,49 +55,17 @@ export interface PayrollCalculation {
 }
 
 /**
- * Calcula el auxilio de transporte proporcional
- * Solo aplica para salarios hasta 2 SMLV
- * Se paga SOLO por los días efectivamente trabajados
- * NO aplica para: vacaciones, incapacidad, licencias, ARL
- * 
- * @param baseSalary - Salario base del empleado
- * @param enabled - Si el auxilio está habilitado
- * @param customValue - Valor personalizado del auxilio mensual
- * @param eligibleDays - Días que califican para auxilio (días efectivamente trabajados)
- */
-export function calculateTransportAllowance(
-  baseSalary: number,
-  enabled: boolean = true,
-  customValue?: number,
-  eligibleDays: number = 30
-): number {
-  if (!enabled) return 0;
-  if (baseSalary > PAYROLL_CONSTANTS.MAX_SALARY_FOR_TRANSPORT) return 0;
-  
-  const monthlyValue = customValue ?? PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE;
-  const dailyRate = monthlyValue / 30;
-  
-  return Math.round(dailyRate * eligibleDays);
-}
-
-/**
  * Calcula el IBC (Ingreso Base de Cotización)
- * Es el total devengado menos auxilio de transporte
+ * Es el total devengado (para este caso, sin auxilio de transporte)
  * El IBC es la base para calcular aportes a salud y pensión
  */
-export function calculateIBC(
-  regularPay: number,
-  surcharges: number,
-  transportAllowance: number
-): number {
-  // El IBC es todo lo devengado EXCEPTO auxilio de transporte
-  const totalDevengado = regularPay + surcharges + transportAllowance;
-  return totalDevengado - transportAllowance; // = regularPay + surcharges
+export function calculateIBC(regularPay: number, surcharges: number): number {
+  return regularPay + surcharges;
 }
 
 /**
  * Calcula la deducción de salud (4%)
- * Se calcula sobre el IBC (no sobre salario base)
+ * Se calcula sobre el IBC
  */
 export function calculateHealthDeduction(ibc: number): number {
   return Math.round(ibc * PAYROLL_CONSTANTS.HEALTH_PERCENTAGE);
@@ -99,7 +73,7 @@ export function calculateHealthDeduction(ibc: number): number {
 
 /**
  * Calcula la deducción de pensión (4%)
- * Se calcula sobre el IBC (no sobre salario base)
+ * Se calcula sobre el IBC
  */
 export function calculatePensionDeduction(ibc: number): number {
   return Math.round(ibc * PAYROLL_CONSTANTS.PENSION_PERCENTAGE);
@@ -136,77 +110,56 @@ export function calculateWithholdingTax(
 /**
  * Calcula la provisión de prima (8.33% mensual)
  * Prima se paga en junio y diciembre
+ * NOTA: Sin auxilio de transporte en este cálculo
  */
-export function calculatePrimaProvision(
-  baseSalary: number,
-  transportAllowance: number
-): number {
-  // La prima se calcula sobre salario + auxilio de transporte
-  return (baseSalary + transportAllowance) * PAYROLL_CONSTANTS.PRIMA_PERCENTAGE;
+export function calculatePrimaProvision(baseSalary: number): number {
+  return baseSalary * PAYROLL_CONSTANTS.PRIMA_PERCENTAGE;
 }
 
 /**
  * Calcula la provisión de cesantías (8.33% mensual)
+ * NOTA: Sin auxilio de transporte en este cálculo
  */
-export function calculateCesantiasProvision(
-  baseSalary: number,
-  transportAllowance: number
-): number {
-  // Las cesantías se calculan sobre salario + auxilio de transporte
-  return (baseSalary + transportAllowance) * PAYROLL_CONSTANTS.CESANTIAS_PERCENTAGE;
+export function calculateCesantiasProvision(baseSalary: number): number {
+  return baseSalary * PAYROLL_CONSTANTS.CESANTIAS_PERCENTAGE;
 }
 
 /**
  * Calcula los intereses sobre cesantías (12% anual = 1% mensual)
  */
 export function calculateCesantiasInterest(cesantiasProvision: number): number {
-  // Interés mensual (12% anual / 12 meses)
   return cesantiasProvision * (PAYROLL_CONSTANTS.CESANTIAS_INTEREST / 12);
 }
 
 /**
  * Calcula la nómina completa del mes
+ * NOTA: El auxilio de transporte ha sido removido de esta lógica
  */
 export function calculateFullPayroll(
   baseSalary: number,
   regularPay: number,
   surcharges: number,
   options: {
-    transportAllowanceEnabled?: boolean;
-    customTransportAllowance?: number;
     uvtValue?: number;
-    eligibleTransportDays?: number; // Días que califican para auxilio de transporte
   } = {}
 ): PayrollCalculation {
-  const {
-    transportAllowanceEnabled = true,
-    customTransportAllowance,
-    uvtValue = PAYROLL_CONSTANTS.UVT_VALUE,
-    eligibleTransportDays = 30, // Default a mes completo
-  } = options;
+  const { uvtValue = PAYROLL_CONSTANTS.UVT_VALUE } = options;
 
-  // Ingresos - Auxilio de transporte proporcional a días trabajados
-  const transportAllowance = calculateTransportAllowance(
-    baseSalary,
-    transportAllowanceEnabled,
-    customTransportAllowance,
-    eligibleTransportDays
-  );
-  const totalEarnings = regularPay + surcharges + transportAllowance;
+  // Total de ingresos (sin auxilio de transporte)
+  const totalEarnings = regularPay + surcharges;
 
-  // Calcular IBC (Ingreso Base de Cotización)
-  // IBC = Total Devengado - Auxilio de Transporte
-  const ibc = calculateIBC(regularPay, surcharges, transportAllowance);
+  // Calcular IBC
+  const ibc = calculateIBC(regularPay, surcharges);
 
-  // Deducciones (sobre el IBC, no sobre salario base)
+  // Deducciones
   const healthDeduction = calculateHealthDeduction(ibc);
   const pensionDeduction = calculatePensionDeduction(ibc);
   const withholdingTax = calculateWithholdingTax(ibc, uvtValue);
   const totalDeductions = healthDeduction + pensionDeduction + withholdingTax;
 
-  // Provisiones (informativo)
-  const primaProvision = calculatePrimaProvision(baseSalary, transportAllowance);
-  const cesantiasProvision = calculateCesantiasProvision(baseSalary, transportAllowance);
+  // Provisiones (informativo, sin auxilio de transporte)
+  const primaProvision = calculatePrimaProvision(baseSalary);
+  const cesantiasProvision = calculateCesantiasProvision(baseSalary);
   const cesantiasInterest = calculateCesantiasInterest(cesantiasProvision);
 
   // Neto
@@ -216,7 +169,6 @@ export function calculateFullPayroll(
     baseSalary,
     regularPay,
     surcharges,
-    transportAllowance,
     totalEarnings,
     healthDeduction,
     pensionDeduction,

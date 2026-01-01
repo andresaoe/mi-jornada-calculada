@@ -5,11 +5,11 @@ import {
   calculateMonthlySummary, 
   calculateSurchargesOnly,
   filterWorkDaysByMonth,
-  countTransportAllowanceDays 
 } from '@/lib/salary-calculator';
 import { calculateFullPayroll, PayrollCalculation } from '@/lib/payroll-calculator';
 import { PayrollConfig } from '@/types/payroll';
 import { addMonths } from 'date-fns';
+import { MONTHLY_HOURS } from '@/lib/colombian-labor-law';
 
 interface UseSalaryCalculationsProps {
   workDays: WorkDay[];
@@ -39,14 +39,14 @@ export function useSalaryCalculations({
 
   // Calculate current month regular pay
   const currentMonthRegularPay = useMemo(() => {
-    const hourlyRate = baseSalary / 220;
+    const hourlyRate = baseSalary / MONTHLY_HOURS;
     return currentMonthWorkDays.reduce(
       (sum, wd) => sum + (wd.regularHours * hourlyRate), 
       0
     );
   }, [currentMonthWorkDays, baseSalary]);
 
-  // Calculate surcharges (pass all workDays for incapacidad consecutive day calculation)
+  // Calculate surcharges
   const previousMonthSurcharges = useMemo(
     () => calculateSurchargesOnly(previousMonthWorkDays, baseSalary),
     [previousMonthWorkDays, baseSalary]
@@ -76,26 +76,18 @@ export function useSalaryCalculations({
     };
   }, [currentMonthWorkDays, baseSalary, totalToReceive, previousMonthSurcharges]);
 
-  // Count days that qualify for transport allowance
-  const eligibleTransportDays = useMemo(
-    () => countTransportAllowanceDays(currentMonthWorkDays),
-    [currentMonthWorkDays]
-  );
-
   // Full payroll calculation with deductions and provisions
+  // NOTA: El auxilio de transporte ha sido removido de la lógica
   const payrollSummary = useMemo((): PayrollCalculation => {
     return calculateFullPayroll(
       baseSalary,
       currentMonthRegularPay,
       previousMonthSurcharges.totalSurcharges,
       {
-        transportAllowanceEnabled: payrollConfig?.transportAllowanceEnabled ?? true,
-        customTransportAllowance: payrollConfig?.transportAllowanceValue,
         uvtValue: payrollConfig?.uvtValue,
-        eligibleTransportDays, // Días efectivamente trabajados
       }
     );
-  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig, eligibleTransportDays]);
+  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig]);
 
   return {
     currentMonthWorkDays,
