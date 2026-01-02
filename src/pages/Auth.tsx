@@ -106,7 +106,7 @@ export default function Auth() {
             {!isLogin && <>
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Nombre Completo</Label>
-                  <Input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required={!isLogin} placeholder="Escribe aqu\xED tu nombre" />
+                  <Input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required={!isLogin} placeholder="Escribe tu nombre y apellido" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="baseSalary">Base Salarial Mensual</Label>
