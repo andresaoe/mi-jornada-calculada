@@ -1,5 +1,5 @@
 // src/pages/Index.tsx - VERSIÓN REFACTORIZADA
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WorkDay } from '@/types/workday';
 import WorkDayForm from '@/components/WorkDayForm';
@@ -9,16 +9,30 @@ import PayrollSummaryCard from '@/components/PayrollSummaryCard';
 import UserProfile from '@/components/UserProfile';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Briefcase, ChevronLeft, ChevronRight, FileBarChart } from 'lucide-react';
+import { Briefcase, ChevronLeft, ChevronRight, FileBarChart, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useWorkDays } from '@/hooks/useWorkDays';
 import { useSalaryCalculations } from '@/hooks/useSalaryCalculations';
 import { usePayrollConfig } from '@/hooks/usePayrollConfig';
+import { supabase } from '@/integrations/supabase/client';
 const Index = () => {
   const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [editingWorkDay, setEditingWorkDay] = useState<WorkDay | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+        setIsAdmin(data ?? false);
+      }
+    };
+    checkAdmin();
+  }, []);
 
   // Custom hooks - separación de responsabilidades
   const { 
@@ -122,6 +136,27 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {isAdmin && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => navigate('/admin/aprobaciones')}
+                    className="sm:hidden h-9 w-9"
+                  >
+                    <Shield className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate('/admin/aprobaciones')}
+                    className="hidden sm:flex items-center gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </Button>
+                </>
+              )}
               <Button 
                 variant="outline" 
                 size="icon"
