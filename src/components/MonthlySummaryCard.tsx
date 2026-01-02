@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { MonthlySummary, SurchargesSummary } from '@/types/workday';
 import { formatCurrency } from '@/lib/salary-calculator';
-import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar, Sun, ArrowRight } from 'lucide-react';
+import { TrendingUp, DollarSign, Moon, PartyPopper, Clock3, Calendar, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface MonthlySummaryCardProps {
