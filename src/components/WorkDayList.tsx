@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pencil, Trash2, Calendar, FileSpreadsheet } from 'lucide-react';
 import { calculateWorkDay, formatCurrency } from '@/lib/salary-calculator';
+import { isSunday } from '@/lib/colombian-labor-law';
 import * as XLSX from 'xlsx';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -183,7 +184,7 @@ export default function WorkDayList({ workDays, allWorkDays, onEdit, onDelete, b
                         })()}
                         {workDay.isHoliday && (
                           <Badge variant="destructive" className="ml-2 text-xs">
-                            Festivo
+                            {isSunday(workDay.date) ? 'Dominical' : 'Festivo'}
                           </Badge>
                         )}
                       </TableCell>
