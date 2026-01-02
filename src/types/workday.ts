@@ -1,20 +1,15 @@
-export type ShiftType = 
-  | 'diurno_am' 
-  | 'tarde_pm' 
-  | 'trasnocho' 
-  | 'incapacidad' 
-  | 'arl' 
-  | 'vacaciones' 
-  | 'licencia_remunerada' 
-  | 'licencia_no_remunerada';
+// Types for work day management
+// ShiftType is exported from colombian-labor-law for reuse
+import { ShiftType } from '@/lib/colombian-labor-law';
+export type { ShiftType };
 
 export interface WorkDay {
   id: string;
-  date: string;
+  date: string; // Format: YYYY-MM-DD
   shiftType: ShiftType;
   regularHours: number;
   extraHours: number;
-  isHoliday: boolean;
+  isHoliday: boolean; // Auto-detected from Colombian calendar
   notes?: string;
   createdAt: string;
 }
@@ -45,13 +40,4 @@ export interface SurchargesSummary {
   totalHolidaySurcharge: number;
   totalExtraHoursPay: number;
   totalSurcharges: number;
-}
-
-export interface PayrollSummary {
-  currentMonthRegularPay: number;
-  previousMonthSurcharges: SurchargesSummary;
-  currentMonthSurcharges: SurchargesSummary;
-  totalToReceive: number;
-  daysWorked: number;
-  totalHours: number;
 }
