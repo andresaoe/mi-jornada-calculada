@@ -110,7 +110,7 @@ export default function Auth() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="baseSalary">Base Salarial Mensual</Label>
-                  <Input id="baseSalary" type="number" value={baseSalary} onChange={e => setBaseSalary(e.target.value)} required={!isLogin} placeholder="1423500" min="0" step="500" />
+                  <Input id="baseSalary" type="number" value={baseSalary} onChange={e => setBaseSalary(e.target.value)} required={!isLogin} min="0" step="500" placeholder="1416500" />
                 </div>
               </>}
             
