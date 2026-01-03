@@ -58,6 +58,39 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+/**
+ * Validates and sanitizes a color value to prevent CSS injection attacks.
+ * Only allows safe color formats: hex, rgb, rgba, hsl, hsla, and named CSS colors.
+ */
+const sanitizeColor = (color: string): string | null => {
+  if (!color || typeof color !== 'string') {
+    return null;
+  }
+  
+  // Trim and lowercase for consistent matching
+  const trimmed = color.trim();
+  
+  // Regex patterns for valid CSS color formats
+  const validPatterns = [
+    /^#[0-9A-Fa-f]{3}$/,                                    // #RGB
+    /^#[0-9A-Fa-f]{6}$/,                                    // #RRGGBB
+    /^#[0-9A-Fa-f]{8}$/,                                    // #RRGGBBAA
+    /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/,   // rgb(r, g, b)
+    /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/, // rgba(r, g, b, a)
+    /^hsl\(\s*\d{1,3}\s*,\s*\d{1,3}%?\s*,\s*\d{1,3}%?\s*\)$/, // hsl(h, s, l)
+    /^hsla\(\s*\d{1,3}\s*,\s*\d{1,3}%?\s*,\s*\d{1,3}%?\s*,\s*[\d.]+\s*\)$/, // hsla(h, s, l, a)
+    /^[a-zA-Z]+$/,                                          // Named colors (basic check)
+  ];
+  
+  // Check if the color matches any valid pattern
+  if (validPatterns.some(pattern => pattern.test(trimmed))) {
+    // Additional safety: escape any potentially dangerous characters
+    return trimmed.replace(/[<>"'&;{}()]/g, '');
+  }
+  
+  return null;
+};
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
@@ -65,18 +98,25 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
+  // Sanitize the chart ID to prevent injection via ID
+  const sanitizedId = id.replace(/[^a-zA-Z0-9-_]/g, '');
+
   return (
     <style
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(
             ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+${prefix} [data-chart=${sanitizedId}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    const rawColor = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+    const color = rawColor ? sanitizeColor(rawColor) : null;
+    // Sanitize the key as well to prevent injection via config keys
+    const sanitizedKey = key.replace(/[^a-zA-Z0-9-_]/g, '');
+    return color ? `  --color-${sanitizedKey}: ${color};` : null;
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `,
