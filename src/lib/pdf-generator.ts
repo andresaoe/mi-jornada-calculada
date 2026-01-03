@@ -79,6 +79,11 @@ export function generatePayStubPDF(data: PayStubData): void {
     ['Recargos (Mes Anterior)', formatCurrency(payroll.surcharges)],
   ];
   
+  // Add transport allowance if present
+  if (payroll.transportAllowance > 0) {
+    earnings.push(['Auxilio de Transporte', formatCurrency(payroll.transportAllowance)]);
+  }
+  
   earnings.forEach(([label, value]) => {
     doc.text(label, 25, yPos);
     doc.text(value, 180, yPos, { align: 'right' });
@@ -105,8 +110,17 @@ export function generatePayStubPDF(data: PayStubData): void {
   const deductions = [
     ['Salud (4%)', formatCurrency(payroll.healthDeduction)],
     ['Pensión (4%)', formatCurrency(payroll.pensionDeduction)],
-    ['Retención en la Fuente', formatCurrency(payroll.withholdingTax)],
   ];
+  
+  // Add FSP if present
+  if (payroll.fspDeduction > 0) {
+    deductions.push(['Fondo Solidaridad Pensional', formatCurrency(payroll.fspDeduction)]);
+  }
+  
+  // Add withholding tax if present
+  if (payroll.withholdingTax > 0) {
+    deductions.push(['Retención en la Fuente', formatCurrency(payroll.withholdingTax)]);
+  }
   
   deductions.forEach(([label, value]) => {
     doc.text(label, 25, yPos);
@@ -136,6 +150,7 @@ export function generatePayStubPDF(data: PayStubData): void {
     ['Prima de Servicios (8.33%)', formatCurrency(payroll.primaProvision)],
     ['Cesantías (8.33%)', formatCurrency(payroll.cesantiasProvision)],
     ['Intereses Cesantías (12%)', formatCurrency(payroll.cesantiasInterest)],
+    ['Vacaciones (4.17%)', formatCurrency(payroll.vacacionesProvision)],
   ];
   
   provisions.forEach(([label, value]) => {

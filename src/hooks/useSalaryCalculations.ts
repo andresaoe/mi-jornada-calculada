@@ -6,10 +6,10 @@ import {
   calculateSurchargesOnly,
   filterWorkDaysByMonth,
 } from '@/lib/salary-calculator';
-import { calculateFullPayroll, PayrollCalculation } from '@/lib/payroll-calculator';
+import { calculateFullPayroll, PayrollCalculation, PAYROLL_CONSTANTS } from '@/lib/payroll-calculator';
 import { PayrollConfig } from '@/types/payroll';
 import { addMonths } from 'date-fns';
-import { MONTHLY_HOURS } from '@/lib/colombian-labor-law';
+import { getMonthlyHours } from '@/lib/colombian-labor-law';
 
 interface UseSalaryCalculationsProps {
   workDays: WorkDay[];
@@ -37,14 +37,15 @@ export function useSalaryCalculations({
     [workDays, currentDate]
   );
 
-  // Calculate current month regular pay
+  // Calculate current month regular pay using dynamic monthly hours
   const currentMonthRegularPay = useMemo(() => {
-    const hourlyRate = baseSalary / MONTHLY_HOURS;
+    const monthlyHours = getMonthlyHours(currentDate);
+    const hourlyRate = baseSalary / monthlyHours;
     return currentMonthWorkDays.reduce(
       (sum, wd) => sum + (wd.regularHours * hourlyRate), 
       0
     );
-  }, [currentMonthWorkDays, baseSalary]);
+  }, [currentMonthWorkDays, baseSalary, currentDate]);
 
   // Calculate surcharges
   const previousMonthSurcharges = useMemo(
@@ -77,17 +78,23 @@ export function useSalaryCalculations({
   }, [currentMonthWorkDays, baseSalary, totalToReceive, previousMonthSurcharges]);
 
   // Full payroll calculation with deductions and provisions
-  // NOTA: El auxilio de transporte ha sido removido de la lógica
   const payrollSummary = useMemo((): PayrollCalculation => {
     return calculateFullPayroll(
       baseSalary,
       currentMonthRegularPay,
       previousMonthSurcharges.totalSurcharges,
       {
-        uvtValue: payrollConfig?.uvtValue,
+        uvtValue: payrollConfig?.uvtValue ?? PAYROLL_CONSTANTS.UVT_VALUE,
+        includeTransportAllowance: payrollConfig?.includeTransportAllowance ?? true,
+        arlRiskLevel: payrollConfig?.arlRiskLevel ?? 1,
+        useExoneracionAportes: payrollConfig?.useExoneracionAportes ?? true,
+        dependentsDeduction: payrollConfig?.dependentsDeduction ?? 0,
+        medicinaPrepagada: payrollConfig?.medicinaPrepagada ?? 0,
+        viviendaIntereses: payrollConfig?.viviendaIntereses ?? 0,
+        date: currentDate,
       }
     );
-  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig]);
+  }, [baseSalary, currentMonthRegularPay, previousMonthSurcharges, payrollConfig, currentDate]);
 
   return {
     currentMonthWorkDays,
