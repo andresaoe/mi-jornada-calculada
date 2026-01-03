@@ -79,6 +79,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active: boolean
           approved: boolean
           base_salary: number
           created_at: string
@@ -92,6 +93,7 @@ export type Database = {
           uvt_value: number
         }
         Insert: {
+          active?: boolean
           approved?: boolean
           base_salary?: number
           created_at?: string
@@ -105,6 +107,7 @@ export type Database = {
           uvt_value?: number
         }
         Update: {
+          active?: boolean
           approved?: boolean
           base_salary?: number
           created_at?: string
@@ -194,6 +197,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_user_active: { Args: { _user_id: string }; Returns: boolean }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {

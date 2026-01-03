@@ -14,6 +14,7 @@ import Reports from "./pages/Reports";
 import EmailVerified from "./pages/EmailVerified";
 import PendingApproval from "./pages/PendingApproval";
 import AdminApprovals from "./pages/AdminApprovals";
+import AccountInactive from "./pages/AccountInactive";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => {
   const [showSplash, setShowSplash] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isApproved, setIsApproved] = useState<boolean | null>(null);
+  const [isActive, setIsActive] = useState<boolean | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -28,9 +30,10 @@ const App = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
       if (session?.user) {
-        checkUserApprovalAndRole(session.user.id);
+        checkUserStatus(session.user.id);
       } else {
         setIsApproved(null);
+        setIsActive(null);
       }
     });
 
@@ -40,10 +43,11 @@ const App = () => {
       if (session?.user) {
         // Defer to avoid deadlock
         setTimeout(() => {
-          checkUserApprovalAndRole(session.user.id);
+          checkUserStatus(session.user.id);
         }, 0);
       } else {
         setIsApproved(null);
+        setIsActive(null);
         setIsAdmin(false);
       }
     });
@@ -51,13 +55,19 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const checkUserApprovalAndRole = async (userId: string) => {
+  const checkUserStatus = async (userId: string) => {
     try {
       // Check if user is approved
       const { data: approved } = await supabase
         .rpc('is_user_approved', { _user_id: userId });
       
       setIsApproved(approved ?? false);
+
+      // Check if user is active
+      const { data: active } = await supabase
+        .rpc('is_user_active', { _user_id: userId });
+      
+      setIsActive(active ?? false);
 
       // Check if user is admin
       const { data: hasAdmin } = await supabase
@@ -67,6 +77,7 @@ const App = () => {
     } catch (error) {
       console.error("Error checking user status:", error);
       setIsApproved(false);
+      setIsActive(false);
       setIsAdmin(false);
     }
   };
@@ -76,7 +87,7 @@ const App = () => {
   }
 
   // Show loading while checking auth
-  if (isAuthenticated === null || (isAuthenticated && isApproved === null)) {
+  if (isAuthenticated === null || (isAuthenticated && (isApproved === null || isActive === null))) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -87,13 +98,16 @@ const App = () => {
     );
   }
 
-  // Protected route wrapper that checks approval
+  // Protected route wrapper that checks approval and active status
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (!isAuthenticated) {
       return <Navigate to="/auth" replace />;
     }
     if (!isApproved) {
       return <Navigate to="/pendiente-aprobacion" replace />;
+    }
+    if (!isActive) {
+      return <Navigate to="/cuenta-inactiva" replace />;
     }
     return <>{children}</>;
   };
@@ -126,6 +140,14 @@ const App = () => {
               element={
                 isAuthenticated && !isApproved 
                   ? <PendingApproval /> 
+                  : <Navigate to="/" replace />
+              }
+            />
+            <Route
+              path="/cuenta-inactiva"
+              element={
+                isAuthenticated && isApproved && !isActive
+                  ? <AccountInactive />
                   : <Navigate to="/" replace />
               }
             />
