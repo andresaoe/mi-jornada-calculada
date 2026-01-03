@@ -21,7 +21,7 @@ import { format, subMonths, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TrendingUp, BarChart3 } from 'lucide-react';
 import { PayrollConfig } from '@/types/payroll';
-import { MONTHLY_HOURS } from '@/lib/colombian-labor-law';
+import { getMonthlyHours } from '@/lib/colombian-labor-law';
 
 interface MonthlyComparisonProps {
   workDays: WorkDay[];
@@ -41,7 +41,8 @@ export default function MonthlyComparison({ workDays, baseSalary, payrollConfig 
       const monthWorkDays = filterWorkDaysByMonth(workDays, monthDate);
       const prevMonthWorkDays = filterWorkDaysByMonth(workDays, prevMonthDate);
       
-      const hourlyRate = baseSalary / MONTHLY_HOURS;
+      const monthlyHours = getMonthlyHours(monthDate);
+      const hourlyRate = baseSalary / monthlyHours;
       const regularPay = monthWorkDays.reduce((sum, wd) => sum + (wd.regularHours * hourlyRate), 0);
       const surcharges = calculateSurchargesOnly(prevMonthWorkDays, baseSalary);
       
@@ -49,7 +50,11 @@ export default function MonthlyComparison({ workDays, baseSalary, payrollConfig 
         baseSalary,
         regularPay,
         surcharges.totalSurcharges,
-        { uvtValue: payrollConfig?.uvtValue }
+        { 
+          uvtValue: payrollConfig?.uvtValue,
+          includeTransportAllowance: payrollConfig?.includeTransportAllowance,
+          date: monthDate,
+        }
       );
       
       data.push({

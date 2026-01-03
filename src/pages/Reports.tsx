@@ -12,6 +12,7 @@ import { useSalaryCalculations } from '@/hooks/useSalaryCalculations';
 import { generatePayStubPDF, generateAnnualReportPDF } from '@/lib/pdf-generator';
 import { calculateFullPayroll } from '@/lib/payroll-calculator';
 import { calculateSurchargesOnly, filterWorkDaysByMonth } from '@/lib/salary-calculator';
+import { getMonthlyHours } from '@/lib/colombian-labor-law';
 import MonthlyComparison from '@/components/MonthlyComparison';
 import { format, subMonths, startOfMonth, getYear } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -85,7 +86,8 @@ const Reports = () => {
       const monthWorkDays = filterWorkDaysByMonth(workDays, monthDate);
       const prevMonthWorkDays = filterWorkDaysByMonth(workDays, prevMonthDate);
       
-      const hourlyRate = baseSalary / 220;
+      const monthlyHours = getMonthlyHours(monthDate);
+      const hourlyRate = baseSalary / monthlyHours;
       const regularPay = monthWorkDays.reduce((sum, wd) => sum + (wd.regularHours * hourlyRate), 0);
       const surcharges = calculateSurchargesOnly(prevMonthWorkDays, baseSalary);
       
@@ -93,7 +95,10 @@ const Reports = () => {
         baseSalary,
         regularPay,
         surcharges.totalSurcharges,
-        { uvtValue: payrollConfig?.uvtValue }
+        { 
+          uvtValue: payrollConfig?.uvtValue,
+          date: monthDate,
+        }
       );
       
       data.push({
