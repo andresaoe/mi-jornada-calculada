@@ -81,6 +81,7 @@ export type Database = {
         Row: {
           active: boolean
           approved: boolean
+          avatar_url: string | null
           base_salary: number
           created_at: string
           email: string | null
@@ -95,6 +96,7 @@ export type Database = {
         Insert: {
           active?: boolean
           approved?: boolean
+          avatar_url?: string | null
           base_salary?: number
           created_at?: string
           email?: string | null
@@ -109,6 +111,7 @@ export type Database = {
         Update: {
           active?: boolean
           approved?: boolean
+          avatar_url?: string | null
           base_salary?: number
           created_at?: string
           email?: string | null

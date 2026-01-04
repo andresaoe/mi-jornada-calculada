@@ -6,14 +6,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ProfileSettings from './ProfileSettings';
 
 interface Profile {
   full_name: string | null;
   email: string | null;
+  avatar_url: string | null;
 }
 
 export default function UserProfile() {
@@ -22,6 +25,7 @@ export default function UserProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -37,24 +41,27 @@ export default function UserProfile() {
       }
 
       // Get avatar from user metadata (Google profile picture)
-      const userAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
-      setAvatarUrl(userAvatar);
+      const userGoogleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
 
       // Load profile from database
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, email')
+        .select('full_name, email, avatar_url')
         .eq('id', user.id)
         .single();
 
       if (profileData) {
         setProfile(profileData);
+        // Prefer custom avatar over Google avatar
+        setAvatarUrl(profileData.avatar_url || userGoogleAvatar);
       } else {
         // Fallback to user metadata if profile not found
         setProfile({
           full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario',
           email: user.email || null,
+          avatar_url: null,
         });
+        setAvatarUrl(userGoogleAvatar);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -80,6 +87,14 @@ export default function UserProfile() {
     }
   };
 
+  const handleProfileSettingsClose = (open: boolean) => {
+    setShowProfileSettings(open);
+    if (!open) {
+      // Reload profile when settings dialog closes
+      loadProfile();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center gap-3">
@@ -99,28 +114,46 @@ export default function UserProfile() {
     .slice(0, 2);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="text-right">
-            <p className="text-base sm:text-lg font-semibold text-foreground">
-              Bienvenido, {displayName}!
-            </p>
-          </div>
-          <Avatar className="h-10 w-10 cursor-pointer ring-2 ring-primary/20 hover:ring-primary/40 transition-all">
-            <AvatarImage src={avatarUrl || undefined} alt={displayName} />
-            <AvatarFallback className="bg-gradient-primary text-primary-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Cerrar Sesión</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div className="text-right">
+              <p className="text-base sm:text-lg font-semibold text-foreground">
+                Bienvenido, {displayName}!
+              </p>
+            </div>
+            <Avatar className="h-10 w-10 cursor-pointer ring-2 ring-primary/20 hover:ring-primary/40 transition-all">
+              <AvatarImage src={avatarUrl || undefined} alt={displayName} />
+              <AvatarFallback className="bg-gradient-primary text-primary-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem 
+            onClick={() => setShowProfileSettings(true)} 
+            className="cursor-pointer"
+          >
+            <User className="mr-2 h-4 w-4" />
+            <span>Ver Perfil</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={handleLogout} 
+            className="cursor-pointer text-destructive focus:text-destructive"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Cerrar Sesión</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ProfileSettings 
+        open={showProfileSettings} 
+        onOpenChange={handleProfileSettingsClose} 
+      />
+    </>
   );
 }
