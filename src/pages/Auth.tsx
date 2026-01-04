@@ -144,6 +144,29 @@ export default function Auth() {
               {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
             </button>
           </div>
+
+          <div className="pt-4 border-t border-border">
+            <p className="text-xs text-center text-muted-foreground">
+              Desarrollado por{' '}
+              <a 
+                href="https://profile-andresaoe.vercel.app" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium"
+              >
+                @andresaoe
+              </a>
+              {' '}con{' '}
+              <a 
+                href="https://lovable.dev" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium"
+              >
+                Lovable AI
+              </a>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>;
