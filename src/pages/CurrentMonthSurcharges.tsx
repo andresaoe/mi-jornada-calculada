@@ -12,9 +12,6 @@ export default function CurrentMonthSurcharges() {
     surcharges: SurchargesSummary; 
     currentMonth: string;
   };
-
-  const totalNightSurcharges = surcharges.totalNightSurcharge + surcharges.totalSundayNightSurcharge;
-
   const stats = [
     {
       label: 'Recargo Nocturno',

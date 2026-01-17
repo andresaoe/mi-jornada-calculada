@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { WorkDay } from '@/types/workday';
+import { workDaySchema, validateInput } from '@/lib/validators';
 
 interface UseWorkDaysReturn {
   workDays: WorkDay[];
@@ -47,10 +48,11 @@ export function useWorkDays(): UseWorkDaysReturn {
 
       if (error) throw error;
       setWorkDays(data?.map(transformDbToWorkDay) || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al cargar datos",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -99,17 +101,35 @@ export function useWorkDays(): UseWorkDaysReturn {
   const addWorkDay = useCallback(async (workDayData: Omit<WorkDay, 'id' | 'createdAt'>) => {
     if (!userId) return;
 
+    // Validar datos de entrada
+    const validation = validateInput(workDaySchema, {
+      date: workDayData.date,
+      shiftType: workDayData.shiftType,
+      regularHours: workDayData.regularHours,
+      extraHours: workDayData.extraHours,
+      notes: workDayData.notes || null,
+    });
+
+    if (!validation.success) {
+      toast({
+        title: "Error de validación",
+        description: 'error' in validation ? validation.error : 'Datos inválidos',
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('work_days')
         .insert({
           user_id: userId,
-          date: workDayData.date,
-          shift_type: workDayData.shiftType,
-          regular_hours: workDayData.regularHours,
-          extra_hours: workDayData.extraHours,
+          date: validation.data.date,
+          shift_type: validation.data.shiftType,
+          regular_hours: validation.data.regularHours,
+          extra_hours: validation.data.extraHours,
           is_holiday: workDayData.isHoliday,
-          notes: workDayData.notes,
+          notes: validation.data.notes,
         })
         .select()
         .single();
@@ -122,10 +142,11 @@ export function useWorkDays(): UseWorkDaysReturn {
           description: "El día laboral ha sido guardado exitosamente."
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al guardar",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
@@ -159,10 +180,11 @@ export function useWorkDays(): UseWorkDaysReturn {
           description: `Se han guardado ${data.length} días exitosamente.`
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al guardar",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
@@ -196,10 +218,11 @@ export function useWorkDays(): UseWorkDaysReturn {
         title: "Día actualizado",
         description: "El registro ha sido actualizado exitosamente."
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al actualizar",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;
@@ -224,10 +247,11 @@ export function useWorkDays(): UseWorkDaysReturn {
         description: "El registro ha sido eliminado.",
         variant: "destructive"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       toast({
         title: "Error al eliminar",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
       throw error;

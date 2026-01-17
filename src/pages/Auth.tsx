@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Briefcase, Mail, Lock } from 'lucide-react';
+import { Briefcase, Mail, Lock, User } from 'lucide-react';
+import { authSchema, signupSchema, validateInput } from '@/lib/validators';
+
 export default function Auth() {
   const navigate = useNavigate();
   const {
@@ -42,35 +44,62 @@ export default function Auth() {
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
-  const handleEmailAuth = async (e: React.FormEvent) => {
+  const handleEmailAuth = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
     try {
+      // Validar entradas
       if (isLogin) {
-        const {
-          error
-        } = await supabase.auth.signInWithPassword({
-          email,
-          password
+        const validation = validateInput(authSchema, { email: email.trim(), password });
+        if (!validation.success) {
+          toast({
+            title: "Error de validación",
+            description: 'error' in validation ? validation.error : 'Datos inválidos',
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        const { error } = await supabase.auth.signInWithPassword({
+          email: validation.data.email,
+          password: validation.data.password,
         });
         if (error) throw error;
+        
         toast({
           title: "Inicio de sesión exitoso",
-          description: "Bienvenido de nuevo"
+          description: "Bienvenido de nuevo",
         });
       } else {
-        const {
-          error
-        } = await supabase.auth.signUp({
-          email,
+        const validation = validateInput(signupSchema, {
+          email: email.trim(),
           password,
+          fullName: fullName.trim(),
+          baseSalary: parseFloat(baseSalary) || 0,
+        });
+        
+        if (!validation.success) {
+          toast({
+            title: "Error de validación",
+            description: 'error' in validation ? validation.error : 'Datos inválidos',
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
+        const { error } = await supabase.auth.signUp({
+          email: validation.data.email,
+          password: validation.data.password,
           options: {
             emailRedirectTo: `${window.location.origin}/email-verificado`,
             data: {
-              full_name: fullName,
-              base_salary: parseFloat(baseSalary)
-            }
-          }
+              full_name: validation.data.fullName,
+              base_salary: validation.data.baseSalary,
+            },
+          },
         });
         if (error) throw error;
         toast({
@@ -87,8 +116,10 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
-  };
-  return <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
+  }, [email, password, fullName, baseSalary, isLogin, toast, navigate]);
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
@@ -103,22 +134,56 @@ export default function Auth() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleEmailAuth} className="space-y-4">
-            {!isLogin && <>
+            {!isLogin && (
+              <>
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Nombre Completo</Label>
-                  <Input id="fullName" type="text" value={fullName} onChange={e => setFullName(e.target.value)} required={!isLogin} placeholder="Escribe tu nombre y apellido" />
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required={!isLogin}
+                      placeholder="Escribe tu nombre y apellido"
+                      className="pl-10"
+                      maxLength={100}
+                      autoComplete="name"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="baseSalary">Base Salarial Mensual</Label>
-                  <Input id="baseSalary" type="number" value={baseSalary} onChange={e => setBaseSalary(e.target.value)} required={!isLogin} min="0" step="500" placeholder="Por ejemplo: 1416500" />
+                  <Input
+                    id="baseSalary"
+                    type="number"
+                    value={baseSalary}
+                    onChange={(e) => setBaseSalary(e.target.value)}
+                    required={!isLogin}
+                    min="0"
+                    step="500"
+                    placeholder="Por ejemplo: 1416500"
+                  />
                 </div>
-              </>}
-            
+              </>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Correo Electrónico</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} className="pl-10" required />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="tu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                  maxLength={255}
+                  autoComplete="email"
+                />
               </div>
             </div>
 
@@ -126,7 +191,18 @@ export default function Auth() {
               <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="pl-10" required minLength={6} placeholder="tu password" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                  minLength={6}
+                  maxLength={128}
+                  placeholder="Mínimo 6 caracteres"
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                />
               </div>
             </div>
 
@@ -135,12 +211,18 @@ export default function Auth() {
             </Button>
           </form>
 
-          {!isLogin && <p className="text-xs text-center text-muted-foreground">
-              Al dar click en el botón registrarse se enviará un correo de verificación a tu email, sí NO aparece en la bandeja de entrada por favor revisa en el Correo NO deseado.
-            </p>}
+          {!isLogin && (
+            <p className="text-xs text-center text-muted-foreground">
+              Al dar click en el botón registrarse se enviará un correo de verificación a tu email. Si NO aparece en la bandeja de entrada, revisa en Correo NO deseado.
+            </p>
+          )}
 
           <div className="text-center text-sm">
-            <button type="button" onClick={() => setIsLogin(!isLogin)} className="text-primary hover:underline">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-primary hover:underline"
+            >
               {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
             </button>
           </div>
@@ -148,18 +230,18 @@ export default function Auth() {
           <div className="pt-4 border-t border-border">
             <p className="text-xs text-center text-muted-foreground">
               Desarrollado por{' '}
-              <a 
-                href="https://profile-andresaoe.vercel.app" 
-                target="_blank" 
+              <a
+                href="https://profile-andresaoe.vercel.app"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline font-medium"
               >
                 @andresaoe
               </a>
               {' '}con{' '}
-              <a 
-                href="https://lovable.dev" 
-                target="_blank" 
+              <a
+                href="https://lovable.dev"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline font-medium"
               >
@@ -169,5 +251,6 @@ export default function Auth() {
           </div>
         </CardContent>
       </Card>
-    </div>;
+    </div>
+  );
 }
