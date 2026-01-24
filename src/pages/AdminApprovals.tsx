@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check, X, UserCog, Pencil, Trash2, Power, PowerOff } from "lucide-react";
+import AdminNotifications from "@/components/AdminNotifications";
 
 interface UserProfile {
   id: string;
@@ -232,17 +233,20 @@ const AdminApprovals = () => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <UserCog className="h-6 w-6" />
-              Panel de Administración
-            </h1>
-            <p className="text-muted-foreground">Gestiona usuarios y aprobaciones</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <UserCog className="h-6 w-6" />
+                Panel de Administración
+              </h1>
+              <p className="text-muted-foreground">Gestiona usuarios y aprobaciones</p>
+            </div>
           </div>
+          <AdminNotifications />
         </div>
 
         {/* Pending Approvals */}
