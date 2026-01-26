@@ -38,9 +38,13 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
 
   // Form state
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [originalEmail, setOriginalEmail] = useState('');
   const [baseSalary, setBaseSalary] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [googleAvatarUrl, setGoogleAvatarUrl] = useState<string | null>(null);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailUpdatePending, setEmailUpdatePending] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -70,6 +74,8 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
       if (profileData) {
         setProfile(profileData);
         setFullName(profileData.full_name || '');
+        setEmail(profileData.email || '');
+        setOriginalEmail(profileData.email || '');
         setBaseSalary(profileData.base_salary.toString());
         setAvatarUrl(profileData.avatar_url);
         setOriginalBaseSalary(profileData.base_salary);
@@ -149,6 +155,13 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
     e.preventDefault();
     
     const newBaseSalary = parseFloat(baseSalary);
+    const emailChanged = email.trim().toLowerCase() !== originalEmail.toLowerCase();
+    
+    // Check if email changed - show confirmation dialog
+    if (emailChanged) {
+      setShowEmailDialog(true);
+      return;
+    }
     
     // Check if base salary changed
     if (newBaseSalary !== originalBaseSalary) {
@@ -156,15 +169,55 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
       return;
     }
 
-    await saveProfile(false);
+    await saveProfile(false, false);
+  };
+
+  const handleEmailDialogConfirm = async () => {
+    setShowEmailDialog(false);
+    
+    try {
+      setEmailUpdatePending(true);
+      setSaving(true);
+
+      // Update email via Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({
+        email: email.trim(),
+      });
+
+      if (authError) {
+        throw authError;
+      }
+
+      toast({
+        title: "Verificación enviada",
+        description: "Se ha enviado un correo de verificación a tu nueva dirección. Revisa tu bandeja de entrada.",
+      });
+
+      // Continue to check if salary also needs to be saved
+      const newBaseSalary = parseFloat(baseSalary);
+      if (newBaseSalary !== originalBaseSalary) {
+        setShowSalaryDialog(true);
+      } else {
+        await saveProfile(false, true);
+      }
+    } catch (error: any) {
+      console.error('Error updating email:', error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el correo",
+        variant: "destructive",
+      });
+      setSaving(false);
+      setEmailUpdatePending(false);
+    }
   };
 
   const handleSalaryDialogConfirm = async () => {
     setShowSalaryDialog(false);
-    await saveProfile(salaryUpdateOption === 'all');
+    await saveProfile(salaryUpdateOption === 'all', emailUpdatePending);
   };
 
-  const saveProfile = async (updateExistingCalculations: boolean) => {
+  const saveProfile = async (updateExistingCalculations: boolean, skipEmailUpdate: boolean = false) => {
     if (!profile) return;
 
     try {
@@ -198,10 +251,13 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
         title: "Perfil actualizado",
         description: updateExistingCalculations 
           ? "Tu perfil y todos los cálculos existentes han sido actualizados" 
-          : "Tu perfil ha sido actualizado correctamente",
+          : emailUpdatePending
+            ? "Tu perfil ha sido actualizado. Revisa tu correo para verificar el cambio de email."
+            : "Tu perfil ha sido actualizado correctamente",
       });
 
       setOriginalBaseSalary(newBaseSalary);
+      setEmailUpdatePending(false);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error saving profile:', error);
@@ -212,6 +268,7 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
       });
     } finally {
       setSaving(false);
+      setEmailUpdatePending(false);
     }
   };
 
@@ -281,13 +338,14 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
                   <Input
                     id="email"
                     type="email"
-                    value={profile?.email || ''}
-                    disabled
-                    className="bg-muted"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    El correo electrónico no se puede cambiar
-                  </p>
+                  {email.trim().toLowerCase() !== originalEmail.toLowerCase() && (
+                    <p className="text-xs text-amber-600">
+                      ⚠️ Cambiar el correo requiere verificación
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -394,6 +452,38 @@ export default function ProfileSettings({ open, onOpenChange }: ProfileSettingsP
             </Button>
             <Button onClick={handleSalaryDialogConfirm}>
               Confirmar y guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Change Confirmation Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambiar correo electrónico</DialogTitle>
+            <DialogDescription>
+              Estás a punto de cambiar tu correo de <strong>{originalEmail}</strong> a <strong>{email}</strong>.
+              Se enviará un correo de verificación a la nueva dirección.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/20 dark:border-amber-800">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Importante:</strong> Hasta que no verifiques el nuevo correo, seguirás usando el actual para iniciar sesión.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowEmailDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleEmailDialogConfirm}>
+              Enviar verificación
             </Button>
           </DialogFooter>
         </DialogContent>
