@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, X, UserCog, Pencil, Trash2, Power, PowerOff } from "lucide-react";
+import { ArrowLeft, Check, X, UserCog, Pencil, Trash2, Power, PowerOff, UserPlus, Loader2, Eye, EyeOff } from "lucide-react";
 import AdminNotifications from "@/components/AdminNotifications";
 
 interface UserProfile {
@@ -34,9 +34,21 @@ const AdminApprovals = () => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    full_name: "",
+    email: "",
+    password: "",
+    base_salary: 2416500,
+    active: true,
+  });
   const [editForm, setEditForm] = useState({
     full_name: "",
+    email: "",
     base_salary: 0,
+    active: true,
     transport_allowance_enabled: true,
     transport_allowance_value: 200000
   });
@@ -148,11 +160,89 @@ const AdminApprovals = () => {
     setSelectedUser(user);
     setEditForm({
       full_name: user.full_name || "",
+      email: user.email || "",
       base_salary: user.base_salary,
+      active: user.active,
       transport_allowance_enabled: user.transport_allowance_enabled,
       transport_allowance_value: user.transport_allowance_value
     });
     setEditDialogOpen(true);
+  };
+
+  const handleCreateUser = async () => {
+    if (!createForm.email || !createForm.password || !createForm.full_name) {
+      toast({
+        title: "Error",
+        description: "Todos los campos son obligatorios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (createForm.password.length < 6) {
+      toast({
+        title: "Error",
+        description: "La contraseña debe tener mínimo 6 caracteres",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setCreatingUser(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Error",
+          description: "Sesión no válida",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const response = await supabase.functions.invoke("admin-create-user", {
+        body: {
+          email: createForm.email.trim(),
+          password: createForm.password,
+          full_name: createForm.full_name.trim(),
+          base_salary: createForm.base_salary,
+          active: createForm.active,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Error al crear usuario");
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast({
+        title: "Usuario creado",
+        description: `El usuario ${createForm.email} ha sido creado exitosamente`
+      });
+
+      setCreateDialogOpen(false);
+      setCreateForm({
+        full_name: "",
+        email: "",
+        password: "",
+        base_salary: 2416500,
+        active: true,
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo crear el usuario",
+        variant: "destructive"
+      });
+    } finally {
+      setCreatingUser(false);
+    }
   };
 
   const handleEditSubmit = async () => {
@@ -164,6 +254,7 @@ const AdminApprovals = () => {
         .update({
           full_name: editForm.full_name,
           base_salary: editForm.base_salary,
+          active: editForm.active,
           transport_allowance_enabled: editForm.transport_allowance_enabled,
           transport_allowance_value: editForm.transport_allowance_value
         })
@@ -302,11 +393,17 @@ const AdminApprovals = () => {
 
         {/* All Users */}
         <Card>
-          <CardHeader>
-            <CardTitle>Usuarios Registrados</CardTitle>
-            <CardDescription>
-              {users.length} usuario(s) aprobados en el sistema
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle>Usuarios Registrados</CardTitle>
+              <CardDescription>
+                {users.length} usuario(s) aprobados en el sistema
+              </CardDescription>
+            </div>
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Crear Usuario
+            </Button>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -383,6 +480,91 @@ const AdminApprovals = () => {
         </Card>
       </div>
 
+      {/* Create User Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+            <DialogDescription>
+              Ingresa los datos del nuevo usuario. Se le asignará acceso inmediato.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="create_full_name">Nombre Completo *</Label>
+              <Input
+                id="create_full_name"
+                value={createForm.full_name}
+                onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })}
+                placeholder="Juan Pérez"
+              />
+            </div>
+            <div>
+              <Label htmlFor="create_email">Correo Electrónico *</Label>
+              <Input
+                id="create_email"
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                placeholder="usuario@ejemplo.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="create_password">Contraseña *</Label>
+              <div className="relative">
+                <Input
+                  id="create_password"
+                  type={showPassword ? "text" : "password"}
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  placeholder="Mínimo 6 caracteres"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="create_base_salary">Salario Base</Label>
+              <Input
+                id="create_base_salary"
+                type="number"
+                value={createForm.base_salary}
+                onChange={(e) => setCreateForm({ ...createForm, base_salary: Number(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="create_active">Estado Activo</Label>
+              <Switch
+                id="create_active"
+                checked={createForm.active}
+                onCheckedChange={(checked) => setCreateForm({ ...createForm, active: checked })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={creatingUser}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateUser} disabled={creatingUser}>
+              {creatingUser ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                "Crear Usuario"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
@@ -402,12 +584,33 @@ const AdminApprovals = () => {
               />
             </div>
             <div>
+              <Label htmlFor="edit_email">Correo Electrónico</Label>
+              <Input
+                id="edit_email"
+                type="email"
+                value={editForm.email}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                El email solo puede ser cambiado por el usuario desde su perfil
+              </p>
+            </div>
+            <div>
               <Label htmlFor="base_salary">Salario Base</Label>
               <Input
                 id="base_salary"
                 type="number"
                 value={editForm.base_salary}
                 onChange={(e) => setEditForm({ ...editForm, base_salary: Number(e.target.value) })}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit_active">Estado Activo</Label>
+              <Switch
+                id="edit_active"
+                checked={editForm.active}
+                onCheckedChange={(checked) => setEditForm({ ...editForm, active: checked })}
               />
             </div>
             <div className="flex items-center justify-between">
