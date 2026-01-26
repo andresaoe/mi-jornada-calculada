@@ -90,7 +90,7 @@ export default function Auth() {
           return;
         }
         
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: validation.data.email,
           password: validation.data.password,
           options: {
@@ -102,10 +102,24 @@ export default function Auth() {
           },
         });
         if (error) throw error;
+
+        // Debug: confirma si se generó sesión (auto-confirm) o si quedó pendiente de verificación
+        console.info("[auth] signUp ok", {
+          email: validation.data.email,
+          userId: data.user?.id,
+          hasSession: Boolean(data.session),
+          identities: data.user?.identities?.map((i) => i.provider),
+        });
+
         toast({
           title: "Registro exitoso",
           description: "Tu cuenta ha sido creada. Revisa tu correo para verificar tu email."
         });
+
+        // Solicitud: refrescar la página después de registrarse
+        setTimeout(() => {
+          window.location.reload();
+        }, 800);
       }
     } catch (error: any) {
       toast({
