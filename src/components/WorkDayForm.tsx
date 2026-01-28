@@ -24,7 +24,7 @@ interface WorkDayFormProps {
 }
 
 // Shift types that support date range selection
-const RANGE_SHIFT_TYPES: ShiftType[] = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada'];
+const RANGE_SHIFT_TYPES: ShiftType[] = ['incapacidad', 'arl', 'vacaciones', 'licencia_remunerada', 'licencia_no_remunerada', 'descanso', 'suspendido'];
 
 export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay, onCancelEdit }: WorkDayFormProps) {
   const initialDate = editingWorkDay?.date || new Date().toISOString().split('T')[0];
@@ -140,6 +140,8 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
                   <SelectItem value="vacaciones">Vacaciones</SelectItem>
                   <SelectItem value="licencia_remunerada">Licencia Remunerada</SelectItem>
                   <SelectItem value="licencia_no_remunerada">Licencia No Remunerada</SelectItem>
+                  <SelectItem value="descanso">Descanso (Día libre remunerado)</SelectItem>
+                  <SelectItem value="suspendido">Suspendido (Sin remuneración)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -224,7 +226,9 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
                       shiftType === 'arl' ? 'ARL' :
                       shiftType === 'vacaciones' ? 'vacaciones' :
                       shiftType === 'licencia_remunerada' ? 'licencia remunerada' :
-                      'licencia no remunerada'
+                      shiftType === 'licencia_no_remunerada' ? 'licencia no remunerada' :
+                      shiftType === 'descanso' ? 'descanso' :
+                      'suspensión'
                     }
                   </p>
                 )}
@@ -321,6 +325,20 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
             <div className="flex items-center gap-2 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-md text-sm text-purple-700 dark:text-purple-400">
               <Info className="h-4 w-4 flex-shrink-0" />
               <span>Desde el 25 de diciembre de 2025, las horas de 7pm a 9pm tienen recargo nocturno (Ley 2466)</span>
+            </div>
+          )}
+
+          {shiftType === 'descanso' && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 rounded-md text-sm text-green-700 dark:text-green-400">
+              <Info className="h-4 w-4 flex-shrink-0" />
+              <span>Día de descanso remunerado (Art. 172 CST). Se paga como un día ordinario de trabajo (salario base / 30)</span>
+            </div>
+          )}
+
+          {shiftType === 'suspendido' && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/30 rounded-md text-sm text-red-700 dark:text-red-400">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Suspensión disciplinaria (Art. 51 CST). Durante la suspensión del contrato no hay remuneración</span>
             </div>
           )}
 
