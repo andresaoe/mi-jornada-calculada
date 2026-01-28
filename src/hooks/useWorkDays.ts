@@ -156,8 +156,46 @@ export function useWorkDays(): UseWorkDaysReturn {
   const addMultipleWorkDays = useCallback(async (workDaysData: Omit<WorkDay, 'id' | 'createdAt'>[]) => {
     if (!userId || workDaysData.length === 0) return;
 
+    // Validate all work days before insertion
+    const validatedWorkDays: Array<{
+      date: string;
+      shiftType: string;
+      regularHours: number;
+      extraHours: number;
+      notes: string | null | undefined;
+      isHoliday: boolean;
+    }> = [];
+
+    for (const wd of workDaysData) {
+      const validation = validateInput(workDaySchema, {
+        date: wd.date,
+        shiftType: wd.shiftType,
+        regularHours: wd.regularHours,
+        extraHours: wd.extraHours,
+        notes: wd.notes || null,
+      });
+
+      if (!validation.success) {
+        toast({
+          title: "Error de validación",
+          description: 'error' in validation ? validation.error : `Datos inválidos para fecha ${wd.date}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      validatedWorkDays.push({
+        date: validation.data.date,
+        shiftType: validation.data.shiftType,
+        regularHours: validation.data.regularHours,
+        extraHours: validation.data.extraHours,
+        notes: validation.data.notes,
+        isHoliday: wd.isHoliday,
+      });
+    }
+
     try {
-      const insertData = workDaysData.map(wd => ({
+      const insertData = validatedWorkDays.map(wd => ({
         user_id: userId,
         date: wd.date,
         shift_type: wd.shiftType,
