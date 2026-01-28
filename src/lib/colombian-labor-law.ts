@@ -204,7 +204,9 @@ export type ShiftType =
   | 'arl' 
   | 'vacaciones' 
   | 'licencia_remunerada' 
-  | 'licencia_no_remunerada';
+  | 'licencia_no_remunerada'
+  | 'descanso'
+  | 'suspendido';
 
 // Shift types that don't receive surcharges
 export const NO_SURCHARGE_SHIFTS: readonly ShiftType[] = [
@@ -212,7 +214,9 @@ export const NO_SURCHARGE_SHIFTS: readonly ShiftType[] = [
   'arl', 
   'vacaciones', 
   'licencia_remunerada', 
-  'licencia_no_remunerada'
+  'licencia_no_remunerada',
+  'descanso',
+  'suspendido'
 ];
 
 /**
@@ -224,6 +228,14 @@ export const NO_SURCHARGE_SHIFTS: readonly ShiftType[] = [
  * - Días 91-180: 50% a cargo de la EPS
  * 
  * ARL: 100% a cargo de la ARL desde el día 1
+ * 
+ * Descanso remunerado (Art. 172 CST):
+ * - El trabajador tiene derecho a un día de descanso remunerado por semana
+ * - Se paga como un día ordinario de trabajo (salario base / 30)
+ * 
+ * Suspensión disciplinaria (Art. 51 CST):
+ * - Durante la suspensión del contrato no hay remuneración
+ * - Es una medida disciplinaria o administrativa
  */
 export const SPECIAL_SHIFT_RATES = {
   INCAPACIDAD_DAYS_1_2: 1.0,      // 100% primeros 2 días (empleador)
@@ -233,6 +245,8 @@ export const SPECIAL_SHIFT_RATES = {
   VACACIONES: 1.0,                 // 100% vacaciones
   LICENCIA_REMUNERADA: 1.0,        // 100% licencia remunerada
   LICENCIA_NO_REMUNERADA: 0,       // 0% licencia no remunerada
+  DESCANSO: 1.0,                   // 100% día de descanso remunerado (Art. 172 CST)
+  SUSPENDIDO: 0,                   // 0% suspensión disciplinaria (Art. 51 CST)
 } as const;
 
 // ==================== DATE UTILITIES ====================

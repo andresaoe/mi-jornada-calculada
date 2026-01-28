@@ -42,6 +42,8 @@ export default function WorkDayList({ workDays, allWorkDays, onEdit, onDelete, b
       vacaciones: 'default',
       licencia_remunerada: 'secondary',
       licencia_no_remunerada: 'outline',
+      descanso: 'default',
+      suspendido: 'destructive',
     };
     return variants[shiftType as keyof typeof variants] || 'default';
   };
@@ -56,6 +58,8 @@ export default function WorkDayList({ workDays, allWorkDays, onEdit, onDelete, b
       vacaciones: 'Vacaciones',
       licencia_remunerada: 'Lic. Remunerada',
       licencia_no_remunerada: 'Lic. No Remunerada',
+      descanso: 'Descanso',
+      suspendido: 'Suspendido',
     };
     return labels[shiftType as keyof typeof labels] || shiftType;
   };

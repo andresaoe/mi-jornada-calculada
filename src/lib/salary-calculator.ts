@@ -203,6 +203,13 @@ function calculateSpecialShiftPay(
       return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.LICENCIA_REMUNERADA;
     case 'licencia_no_remunerada':
       return 0;
+    case 'descanso':
+      // Descanso remunerado (Art. 172 CST): se paga como día ordinario
+      // Cálculo: salario base / 30 días
+      return baseSalary / 30;
+    case 'suspendido':
+      // Suspensión disciplinaria (Art. 51 CST): sin remuneración
+      return 0;
     default:
       return regularHours * hourlyRate;
   }
@@ -266,6 +273,8 @@ function calculateWorkDaySimple(
   if (shiftType === 'arl') return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.ARL;
   if (shiftType === 'licencia_remunerada') return regularHours * hourlyRate * SPECIAL_SHIFT_RATES.LICENCIA_REMUNERADA;
   if (shiftType === 'licencia_no_remunerada') return 0;
+  if (shiftType === 'descanso') return baseSalary / 30; // Descanso remunerado
+  if (shiftType === 'suspendido') return 0; // Suspensión sin pago
 
   let total = regularHours * hourlyRate;
 
