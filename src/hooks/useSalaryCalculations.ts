@@ -38,13 +38,27 @@ export function useSalaryCalculations({
   );
 
   // Calculate current month regular pay using dynamic monthly hours
+  // Considera turnos especiales como descanso y suspendido con su lógica propia
   const currentMonthRegularPay = useMemo(() => {
     const monthlyHours = getMonthlyHours(currentDate);
     const hourlyRate = baseSalary / monthlyHours;
-    return currentMonthWorkDays.reduce(
-      (sum, wd) => sum + (wd.regularHours * hourlyRate), 
-      0
-    );
+    
+    return currentMonthWorkDays.reduce((sum, wd) => {
+      // Descanso remunerado: pago de un día completo (Art. 172 CST)
+      if (wd.shiftType === 'descanso') {
+        return sum + (baseSalary / 30);
+      }
+      // Suspensión disciplinaria: sin remuneración (Art. 51 CST)
+      if (wd.shiftType === 'suspendido') {
+        return sum + 0;
+      }
+      // Licencia no remunerada: sin pago
+      if (wd.shiftType === 'licencia_no_remunerada') {
+        return sum + 0;
+      }
+      // Otros turnos: cálculo normal basado en horas
+      return sum + (wd.regularHours * hourlyRate);
+    }, 0);
   }, [currentMonthWorkDays, baseSalary, currentDate]);
 
   // Calculate surcharges

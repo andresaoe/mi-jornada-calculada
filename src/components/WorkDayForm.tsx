@@ -43,6 +43,10 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
 
   // Check if current shift type supports range selection
   const supportsRange = RANGE_SHIFT_TYPES.includes(shiftType);
+  
+  // Turnos que no requieren horas (se calculan diferente)
+  const noHoursShifts: ShiftType[] = ['descanso', 'suspendido'];
+  const isNoHoursShift = noHoursShifts.includes(shiftType);
 
   // Reset range mode when shift type changes
   useEffect(() => {
@@ -50,7 +54,12 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
       setUseRangeMode(false);
       setDateRange(undefined);
     }
-  }, [shiftType, supportsRange]);
+    // Para descanso y suspendido, establecer horas en 0 automáticamente
+    if (isNoHoursShift) {
+      setRegularHours('0');
+      setExtraHours('0');
+    }
+  }, [shiftType, supportsRange, isNoHoursShift]);
 
   // Calculate number of days in range
   const daysInRange = dateRange?.from && dateRange?.to 
@@ -68,7 +77,8 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
         return {
           date: dayStr,
           shiftType,
-          regularHours: parseFloat(regularHours),
+          // Descanso y suspendido: 0 horas (se calcula por día completo)
+          regularHours: isNoHoursShift ? 0 : parseFloat(regularHours),
           extraHours: 0,
           isHoliday: isHolidayOrSunday(dayStr), // Auto-detect from Colombian calendar
           notes,
@@ -88,8 +98,9 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
       onSubmit({
         date,
         shiftType,
-        regularHours: parseFloat(regularHours),
-        extraHours: parseFloat(extraHours),
+        // Descanso y suspendido: 0 horas (se calcula por día completo)
+        regularHours: isNoHoursShift ? 0 : parseFloat(regularHours),
+        extraHours: isNoHoursShift ? 0 : parseFloat(extraHours),
         isHoliday: isHolidayOrSunday(date), // Auto-detect from Colombian calendar
         notes,
       });
@@ -246,19 +257,22 @@ export default function WorkDayForm({ onSubmit, onSubmitMultiple, editingWorkDay
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="regularHours">Horas Ordinarias</Label>
-              <Input
-                id="regularHours"
-                type="number"
-                min="0"
-                max="24"
-                step="0.5"
-                value={regularHours}
-                onChange={(e) => setRegularHours(e.target.value)}
-                required
-              />
-            </div>
+            {/* Solo mostrar campo de horas si no es descanso/suspendido */}
+            {!isNoHoursShift && (
+              <div className="space-y-2">
+                <Label htmlFor="regularHours">Horas Ordinarias</Label>
+                <Input
+                  id="regularHours"
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={regularHours}
+                  onChange={(e) => setRegularHours(e.target.value)}
+                  required
+                />
+              </div>
+            )}
 
             {!RANGE_SHIFT_TYPES.includes(shiftType) && (
               <div className="space-y-2">
