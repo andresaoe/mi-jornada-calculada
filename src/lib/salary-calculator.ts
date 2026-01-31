@@ -205,7 +205,7 @@ function calculateSpecialShiftPay(
       return 0;
     case 'descanso':
       // Descanso remunerado (Art. 172 CST): se paga como día ordinario
-      // Cálculo: salario base / 30 días
+      // Cálculo: salario base / 30 días (independiente de regularHours)
       return baseSalary / 30;
     case 'suspendido':
       // Suspensión disciplinaria (Art. 51 CST): sin remuneración
