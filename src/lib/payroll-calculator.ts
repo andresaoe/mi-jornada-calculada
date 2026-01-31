@@ -5,22 +5,46 @@
 
 import { getMonthlyHours } from './colombian-labor-law';
 
-// ==================== CONSTANTES 2025 ====================
+// ==================== CONSTANTES 2025-2026 ====================
 
 export const PAYROLL_CONSTANTS = {
   // Valores legales 2025
-  MINIMUM_WAGE: 1423500,                 // SMLV 2025
-  TRANSPORT_ALLOWANCE: 200000,           // Auxilio de transporte 2025
-  MAX_SALARY_FOR_TRANSPORT: 2847000,     // 2 x SMLV
-  UVT_VALUE: 49799,                      // UVT 2025 (DIAN)
+  MINIMUM_WAGE_2025: 1423500,             // SMLV 2025
+  TRANSPORT_ALLOWANCE_2025: 200000,       // Auxilio de transporte 2025
+  
+  // Valores legales 2026 (Decretos 1469 y 1470 de 2025)
+  MINIMUM_WAGE_2026: 1750905,             // SMLV 2026
+  TRANSPORT_ALLOWANCE_2026: 249095,       // Auxilio de transporte 2026
+  
+  // Valores dinámicos (usar getters para fecha actual)
+  get MINIMUM_WAGE() {
+    const year = new Date().getFullYear();
+    return year >= 2026 ? this.MINIMUM_WAGE_2026 : this.MINIMUM_WAGE_2025;
+  },
+  get TRANSPORT_ALLOWANCE() {
+    const year = new Date().getFullYear();
+    return year >= 2026 ? this.TRANSPORT_ALLOWANCE_2026 : this.TRANSPORT_ALLOWANCE_2025;
+  },
+  get MAX_SALARY_FOR_TRANSPORT() {
+    return this.MINIMUM_WAGE * 2;
+  },
+  
+  // UVT (Unidad de Valor Tributario)
+  UVT_VALUE_2025: 49799,                  // UVT 2025 (DIAN)
+  UVT_VALUE_2026: 52218,                  // UVT 2026 (DIAN - Resolución 000187 de 2025)
+  get UVT_VALUE() {
+    const year = new Date().getFullYear();
+    return year >= 2026 ? this.UVT_VALUE_2026 : this.UVT_VALUE_2025;
+  },
   
   // Jornada laboral (Ley 2101 de 2021 - reducción gradual)
   // Antes 15 julio 2025: 46 horas semanales
   // Desde 15 julio 2025: 44 horas semanales
-  WEEKLY_HOURS_BEFORE_JULY_2025: 46,
-  WEEKLY_HOURS_AFTER_JULY_2025: 44,
-  MONTHLY_HOURS_BEFORE_JULY_2025: 230,   // 46/6 * 30
-  MONTHLY_HOURS_AFTER_JULY_2025: 220,    // 44/6 * 30
+  // Desde 15 julio 2026: 42 horas semanales
+  WEEKLY_HOURS_2025: 44,                  // Desde julio 2025
+  WEEKLY_HOURS_2026: 42,                  // Desde julio 2026
+  MONTHLY_HOURS_2025: 220,                // 44/6 * 30
+  MONTHLY_HOURS_2026: 210,                // 42/6 * 30
   
   // Aportes Seguridad Social - Empleado
   EMPLOYEE_HEALTH_PERCENTAGE: 0.04,      // 4%
@@ -158,9 +182,14 @@ export function calculateIBC(regularPay: number, surcharges: number): number {
 
 /**
  * Determina si el salario tiene derecho a auxilio de transporte
+ * Considera el SMLV vigente según la fecha
  */
-export function hasTransportAllowance(baseSalary: number): boolean {
-  return baseSalary <= PAYROLL_CONSTANTS.MAX_SALARY_FOR_TRANSPORT;
+export function hasTransportAllowance(baseSalary: number, date?: Date): boolean {
+  const year = (date ?? new Date()).getFullYear();
+  const maxSalary = year >= 2026 
+    ? PAYROLL_CONSTANTS.MINIMUM_WAGE_2026 * 2 
+    : PAYROLL_CONSTANTS.MINIMUM_WAGE_2025 * 2;
+  return baseSalary <= maxSalary;
 }
 
 /**
@@ -414,9 +443,17 @@ export function calculateFullPayroll(
     viviendaIntereses = 0,
   } = options;
 
-  // Auxilio de transporte
-  const transportAllowance = (includeTransportAllowance && hasTransportAllowance(baseSalary))
-    ? PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE
+  // Determinar fecha para cálculos
+  const calcDate = options.date ?? new Date();
+  const year = calcDate.getFullYear();
+
+  // Auxilio de transporte (varía según año)
+  const transportAllowanceValue = year >= 2026 
+    ? PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE_2026 
+    : PAYROLL_CONSTANTS.TRANSPORT_ALLOWANCE_2025;
+    
+  const transportAllowance = (includeTransportAllowance && hasTransportAllowance(baseSalary, calcDate))
+    ? transportAllowanceValue
     : 0;
 
   // Total devengado (para pago)

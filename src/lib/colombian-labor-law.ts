@@ -8,16 +8,57 @@ import { isColombianHoliday } from './colombian-holidays';
 // ==================== LEGAL CONSTANTS ====================
 
 /**
- * Salario Mínimo Legal Vigente 2025
- * Decreto 2294 de diciembre 2024
+ * Salarios Mínimos Legales Vigentes
+ * Decreto 1469 de diciembre 2025 (para 2026)
+ * Decreto 2294 de diciembre 2024 (para 2025)
  */
-export const MINIMUM_WAGE_2025 = 1423500;
+export const MINIMUM_WAGES = {
+  2025: 1423500,
+  2026: 1750905,
+} as const;
+
+// Usar el año actual para obtener el SMLV correcto
+export const MINIMUM_WAGE_2025 = MINIMUM_WAGES[2025];
+export const MINIMUM_WAGE_2026 = MINIMUM_WAGES[2026];
 
 /**
- * Auxilio de transporte legal vigente 2025
- * Solo aplica para salarios hasta 2 SMLV ($2.847.000)
+ * Obtiene el SMLV según la fecha
  */
-export const TRANSPORT_ALLOWANCE_2025 = 200000;
+export function getMinimumWage(date?: Date): number {
+  const year = (date ?? new Date()).getFullYear();
+  if (year >= 2026) return MINIMUM_WAGES[2026];
+  return MINIMUM_WAGES[2025];
+}
+
+/**
+ * Auxilio de transporte legal vigente
+ * Decreto 1470 de diciembre 2025 (para 2026)
+ * Solo aplica para salarios hasta 2 SMLV
+ */
+export const TRANSPORT_ALLOWANCES = {
+  2025: 200000,
+  2026: 249095,
+} as const;
+
+export const TRANSPORT_ALLOWANCE_2025 = TRANSPORT_ALLOWANCES[2025];
+export const TRANSPORT_ALLOWANCE_2026 = TRANSPORT_ALLOWANCES[2026];
+
+/**
+ * Obtiene el auxilio de transporte según la fecha
+ */
+export function getTransportAllowance(date?: Date): number {
+  const year = (date ?? new Date()).getFullYear();
+  if (year >= 2026) return TRANSPORT_ALLOWANCES[2026];
+  return TRANSPORT_ALLOWANCES[2025];
+}
+
+/**
+ * Obtiene el tope máximo de salario para auxilio de transporte
+ */
+export function getMaxSalaryForTransport(date?: Date): number {
+  return getMinimumWage(date) * 2;
+}
+
 export const MAX_SALARY_FOR_TRANSPORT_2025 = MINIMUM_WAGE_2025 * 2;
 
 /**
@@ -418,7 +459,8 @@ export function calculateDailyRate(baseSalary: number): number {
 
 /**
  * Determina si el salario tiene derecho a auxilio de transporte
+ * Considera el SMLV según la fecha (2025 o 2026)
  */
-export function hasTransportAllowance(baseSalary: number): boolean {
-  return baseSalary <= MAX_SALARY_FOR_TRANSPORT_2025;
+export function hasTransportAllowance(baseSalary: number, date?: Date): boolean {
+  return baseSalary <= getMaxSalaryForTransport(date);
 }

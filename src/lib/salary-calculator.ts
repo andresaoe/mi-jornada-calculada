@@ -1,12 +1,12 @@
 // src/lib/salary-calculator.ts
 // Cálculos de salario y recargos según ley laboral colombiana
-// Actualizado con Ley 2466 de 2025
+// Actualizado con Ley 2466 de 2025 y valores 2026
 
 import { WorkDay, WorkDayCalculation, MonthlySummary } from '@/types/workday';
 import { parseISO, isSameMonth, differenceInDays, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import {
-  MONTHLY_HOURS,
-  MINIMUM_WAGE_2025,
+  getMonthlyHours,
+  getMinimumWage,
   SURCHARGE_RATES,
   SPECIAL_SHIFT_RATES,
   NO_SURCHARGE_SHIFTS,
@@ -163,7 +163,7 @@ function getIncapacidadDayPosition(
  * Calculate incapacidad payment percentage based on consecutive days
  */
 function getIncapacidadPercentage(dayPosition: number, baseSalary: number): number {
-  const isMinimumWage = baseSalary <= MINIMUM_WAGE_2025;
+  const isMinimumWage = baseSalary <= getMinimumWage();
   
   if (dayPosition <= 2) {
     return SPECIAL_SHIFT_RATES.INCAPACIDAD_DAYS_1_2;
@@ -259,9 +259,9 @@ function calculateWorkDaySimple(
   allWorkDays: WorkDay[]
 ): number {
   const { shiftType, regularHours, extraHours, date } = workDay;
-  const hourlyRate = baseSalary / MONTHLY_HOURS;
-  const isHoliday = isHolidayOrSunday(date);
   const workDate = parseWorkDayDate(date);
+  const hourlyRate = baseSalary / getMonthlyHours(workDate);
+  const isHoliday = isHolidayOrSunday(date);
 
   if (shiftType === 'vacaciones') return 0;
   
@@ -303,9 +303,9 @@ export function calculateWorkDay(
   allWorkDays: WorkDay[] = []
 ): WorkDayCalculation {
   const { shiftType, regularHours, extraHours, date } = workDay;
-  const hourlyRate = baseSalary / MONTHLY_HOURS;
-  const isHoliday = isHolidayOrSunday(date);
   const workDate = parseWorkDayDate(date);
+  const hourlyRate = baseSalary / getMonthlyHours(workDate);
+  const isHoliday = isHolidayOrSunday(date);
 
   // Handle special shifts (no surcharges)
   if (isSpecialShift(shiftType)) {
