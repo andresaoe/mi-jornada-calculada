@@ -39,11 +39,11 @@ const VARIABLE_HOLIDAYS: Record<number, { month: number; day: number; name: stri
     { month: 4, day: 18, name: 'Viernes Santo' },
     { month: 6, day: 2, name: 'Día de la Ascensión' },
     { month: 6, day: 23, name: 'Corpus Christi' },
-    { month: 6, day: 30, name: 'Sagrado Corazón' },
-    { month: 6, day: 30, name: 'San Pedro y San Pablo' },
+    { month: 6, day: 30, name: 'Sagrado Corazón de Jesús' },
+    { month: 6, day: 30, name: 'San Pedro y San Pablo' }, // Mismo día que Sagrado Corazón
     { month: 8, day: 18, name: 'Asunción de la Virgen' },
     { month: 10, day: 13, name: 'Día de la Raza' },
-    { month: 11, day: 3, name: 'Todos los Santos' },
+    { month: 11, day: 3, name: 'Día de Todos los Santos' },
     { month: 11, day: 17, name: 'Independencia de Cartagena' },
   ],
   2026: [
